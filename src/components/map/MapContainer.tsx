@@ -19,14 +19,14 @@ const MapWithNoSSR = dynamic(() => import('./MapInner'), {
 interface MapContainerProps {
   beverages: Beverage[];
   allBeverages?: Beverage[];
-  onBeverageClick?: (beverage: Beverage) => void;
+  onEditClick?: (beverage: Beverage) => void;
   className?: string;
 }
 
 export function MapContainer({
   beverages,
   allBeverages,
-  onBeverageClick,
+  onEditClick,
   className = '',
 }: MapContainerProps) {
   return (
@@ -34,7 +34,7 @@ export function MapContainer({
       <MapWithNoSSR
         beverages={beverages}
         allBeverages={allBeverages || beverages}
-        onBeverageClick={onBeverageClick}
+        onEditClick={onEditClick}
       />
     </div>
   );

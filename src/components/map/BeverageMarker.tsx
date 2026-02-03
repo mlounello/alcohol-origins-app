@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { CircleMarker, Popup } from 'react-leaflet';
 import { Beverage } from '@/types/database';
 import { GROUP_COLORS } from '@/lib/constants';
@@ -7,10 +8,10 @@ import { computeRadius, formatDateText } from '@/lib/utils/dates';
 
 interface BeverageMarkerProps {
   beverage: Beverage;
-  onClick?: (beverage: Beverage) => void;
+  onEditClick?: (beverage: Beverage) => void;
 }
 
-export function BeverageMarker({ beverage, onClick }: BeverageMarkerProps) {
+export function BeverageMarker({ beverage, onEditClick }: BeverageMarkerProps) {
   const color = GROUP_COLORS[beverage.group] || GROUP_COLORS.Other;
   const radius = computeRadius(beverage.date_year || 0);
 
@@ -27,9 +28,6 @@ export function BeverageMarker({ beverage, onClick }: BeverageMarkerProps) {
         fillColor: fillColor,
         fillOpacity: 0.7,
         weight: 2,
-      }}
-      eventHandlers={{
-        click: () => onClick?.(beverage),
       }}
     >
       <Popup>
@@ -71,14 +69,25 @@ export function BeverageMarker({ beverage, onClick }: BeverageMarkerProps) {
             </p>
           )}
 
-          {onClick && (
-            <button
-              onClick={() => onClick(beverage)}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          <div className="mt-3 pt-2 border-t border-gray-200 flex gap-3">
+            <Link
+              href={`/beverages/${beverage.id}`}
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
             >
               View details →
-            </button>
-          )}
+            </Link>
+            {onEditClick && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditClick(beverage);
+                }}
+                className="text-sm text-green-600 hover:text-green-800 hover:underline"
+              >
+                Edit ✎
+              </button>
+            )}
+          </div>
         </div>
       </Popup>
     </CircleMarker>

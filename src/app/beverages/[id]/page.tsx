@@ -53,17 +53,19 @@ export default function BeverageDetailPage() {
         const data = await response.json();
         setBeverage(data);
 
-        // Fetch parent if exists
+        // Fetch parent if exists (parent_id is a node_id)
         if (data.parent_id) {
-          const parentResponse = await fetch(`/api/beverages/${data.parent_id}`);
+          const parentResponse = await fetch(`/api/beverages?node_id=${encodeURIComponent(data.parent_id)}`);
           if (parentResponse.ok) {
             const parentData = await parentResponse.json();
-            setParent(parentData);
+            if (parentData.length > 0) {
+              setParent(parentData[0]);
+            }
           }
         }
 
-        // Fetch children (beverages that have this as parent)
-        const childrenResponse = await fetch(`/api/beverages?parent_id=${id}`);
+        // Fetch children (beverages that have this beverage's node_id as parent_id)
+        const childrenResponse = await fetch(`/api/beverages?parent_id=${encodeURIComponent(data.node_id)}`);
         if (childrenResponse.ok) {
           const childrenData = await childrenResponse.json();
           setChildren(childrenData);

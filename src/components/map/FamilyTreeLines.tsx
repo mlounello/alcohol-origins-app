@@ -20,14 +20,14 @@ export function FamilyTreeLines({ beverages, allBeverages }: FamilyTreeLinesProp
   const lines = useMemo(() => {
     const result: LineData[] = [];
 
-    // Create a map of all beverages by ID for quick lookup
-    const beverageMap = new Map<string, Beverage>();
-    allBeverages.forEach((b) => beverageMap.set(b.id, b));
+    // Create a map of all beverages by node_id for quick lookup (parent_id references node_id)
+    const beverageByNodeId = new Map<string, Beverage>();
+    allBeverages.forEach((b) => beverageByNodeId.set(b.node_id, b));
 
     // Find parent-child relationships for visible beverages
     beverages.forEach((child) => {
       if (child.parent_id) {
-        const parent = beverageMap.get(child.parent_id);
+        const parent = beverageByNodeId.get(child.parent_id);
         if (parent) {
           // Use child's group color for the line
           const color = GROUP_COLORS[child.group] || GROUP_COLORS.Other;

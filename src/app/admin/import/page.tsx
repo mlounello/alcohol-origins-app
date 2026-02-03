@@ -59,6 +59,50 @@ function parseYear(dateStr: string): number | null {
   return null;
 }
 
+/**
+ * Convert a node_id like "beer_fertile_crescent_2900_bce" to a friendly display name
+ */
+function nodeIdToDisplayName(nodeId: string): string {
+  if (!nodeId) return '';
+
+  const parts = nodeId.split('_');
+  if (parts.length === 0) return nodeId;
+
+  const beverageType = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+
+  let datePart = '';
+  let locationParts: string[] = [];
+
+  const lastPart = parts[parts.length - 1].toLowerCase();
+  if (lastPart === 'bce' || lastPart === 'ce') {
+    if (parts.length >= 4 && parts[parts.length - 2].toLowerCase() === 'century') {
+      datePart = `${parts[parts.length - 3]} century ${lastPart.toUpperCase()}`;
+      locationParts = parts.slice(1, parts.length - 3);
+    } else if (parts.length >= 3) {
+      datePart = `${parts[parts.length - 2]} ${lastPart.toUpperCase()}`;
+      locationParts = parts.slice(1, parts.length - 2);
+    } else {
+      locationParts = parts.slice(1);
+    }
+  } else {
+    locationParts = parts.slice(1);
+  }
+
+  const location = locationParts
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+
+  if (location && datePart) {
+    return `${beverageType} (${location}, ${datePart})`;
+  } else if (location) {
+    return `${beverageType} (${location})`;
+  } else if (datePart) {
+    return `${beverageType} (${datePart})`;
+  }
+
+  return beverageType;
+}
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -157,7 +201,7 @@ export default function ImportPage() {
       // Prepare beverages without parent_id first
       const beverages = rows.map(row => ({
         node_id: row.node_id.trim(),
-        name: row.node_id.trim(),
+        name: nodeIdToDisplayName(row.node_id.trim()),
         type: row.type?.trim() || 'Unknown',
         group: mapGroup(row.group),
         latitude: parseFloat(row.latitude),

@@ -135,7 +135,7 @@ export default function MapPage() {
     return result;
   }, [beverages, filters, showTimeline, timelineYear]);
 
-  const handleBeverageClick = (beverage: Beverage) => {
+  const handleEditClick = (beverage: Beverage) => {
     setSelectedBeverage(beverage);
     setSheetOpen(true);
   };
@@ -208,7 +208,7 @@ export default function MapPage() {
         <MapContainer
           beverages={filteredBeverages}
           allBeverages={beverages}
-          onBeverageClick={handleBeverageClick}
+          onEditClick={handleEditClick}
           className="absolute inset-0"
         />
 

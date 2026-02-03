@@ -21,7 +21,7 @@ L.Icon.Default.mergeOptions({
 interface MapInnerProps {
   beverages: Beverage[];
   allBeverages: Beverage[];
-  onBeverageClick?: (beverage: Beverage) => void;
+  onEditClick?: (beverage: Beverage) => void;
 }
 
 function MapController({ beverages }: { beverages: Beverage[] }) {
@@ -46,7 +46,7 @@ function MapController({ beverages }: { beverages: Beverage[] }) {
 export default function MapInner({
   beverages,
   allBeverages,
-  onBeverageClick,
+  onEditClick,
 }: MapInnerProps) {
   return (
     <MapContainer
@@ -94,7 +94,7 @@ export default function MapInner({
         <BeverageMarker
           key={beverage.id}
           beverage={beverage}
-          onClick={onBeverageClick}
+          onEditClick={onEditClick}
         />
       ))}
 

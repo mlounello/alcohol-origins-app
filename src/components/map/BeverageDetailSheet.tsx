@@ -106,15 +106,15 @@ export function BeverageDetailSheet({
       });
       setIsEditing(false);
 
-      // Find parent and children
+      // Find parent and children (parent_id references node_id)
       if (beverage.parent_id) {
-        const parentBev = allBeverages.find((b) => b.id === beverage.parent_id);
+        const parentBev = allBeverages.find((b) => b.node_id === beverage.parent_id);
         setParent(parentBev || null);
       } else {
         setParent(null);
       }
 
-      const childBeverages = allBeverages.filter((b) => b.parent_id === beverage.id);
+      const childBeverages = allBeverages.filter((b) => b.parent_id === beverage.node_id);
       setChildren(childBeverages);
     }
   }, [beverage, allBeverages, reset]);
@@ -284,6 +284,28 @@ export function BeverageDetailSheet({
             <div className="space-y-2">
               <Label htmlFor="citation">Citation</Label>
               <Textarea id="citation" {...register('citation')} rows={2} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Derived From (Parent Beverage)</Label>
+              <Select
+                value={watch('parent_id') || 'none'}
+                onValueChange={(value) => setValue('parent_id', value === 'none' ? null : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select parent beverage (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {allBeverages
+                    .filter((b) => b.id !== beverage?.id)
+                    .map((b) => (
+                      <SelectItem key={b.id} value={b.node_id}>
+                        {b.name} ({b.type})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex gap-2 pt-4">

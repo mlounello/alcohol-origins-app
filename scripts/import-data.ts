@@ -93,6 +93,60 @@ function parseYear(dateStr: string): number | null {
 }
 
 /**
+ * Convert a node_id like "beer_fertile_crescent_2900_bce" to a friendly display name
+ * Returns "Beer (Fertile Crescent, 2900 BCE)"
+ */
+function nodeIdToDisplayName(nodeId: string): string {
+  if (!nodeId) return '';
+
+  // Split by underscore
+  const parts = nodeId.split('_');
+  if (parts.length === 0) return nodeId;
+
+  // Extract beverage type (first part)
+  const beverageType = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+
+  // Check if last parts are date (e.g., "2900_bce" or "16th_century_ce")
+  let datePart = '';
+  let locationParts: string[] = [];
+
+  // Look for BCE/CE at the end
+  const lastPart = parts[parts.length - 1].toLowerCase();
+  if (lastPart === 'bce' || lastPart === 'ce') {
+    // Check for century format
+    if (parts.length >= 4 && parts[parts.length - 2].toLowerCase() === 'century') {
+      // Format: "16th_century_ce"
+      datePart = `${parts[parts.length - 3]} century ${lastPart.toUpperCase()}`;
+      locationParts = parts.slice(1, parts.length - 3);
+    } else if (parts.length >= 3) {
+      // Format: "2900_bce"
+      datePart = `${parts[parts.length - 2]} ${lastPart.toUpperCase()}`;
+      locationParts = parts.slice(1, parts.length - 2);
+    } else {
+      locationParts = parts.slice(1);
+    }
+  } else {
+    locationParts = parts.slice(1);
+  }
+
+  // Convert location parts to title case
+  const location = locationParts
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+
+  // Build the display name
+  if (location && datePart) {
+    return `${beverageType} (${location}, ${datePart})`;
+  } else if (location) {
+    return `${beverageType} (${location})`;
+  } else if (datePart) {
+    return `${beverageType} (${datePart})`;
+  }
+
+  return beverageType;
+}
+
+/**
  * Parse CSV string into array of objects
  */
 function parseCSV(csvText: string): SheetRow[] {
@@ -216,7 +270,7 @@ async function insertBeverages(rows: SheetRow[]): Promise<Map<string, string>> {
 
   const beverages: BeverageInsert[] = rows.map(row => ({
     node_id: row.node_id.trim(),
-    name: row.node_id.trim(), // Use node_id as name for now
+    name: nodeIdToDisplayName(row.node_id.trim()),
     type: row.type?.trim() || 'Unknown',
     group: mapGroup(row.group),
     latitude: parseFloat(row.latitude),

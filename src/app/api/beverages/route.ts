@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   const minYear = searchParams.get('minYear');
   const maxYear = searchParams.get('maxYear');
   const parentId = searchParams.get('parent_id') || '';
+  const nodeId = searchParams.get('node_id') || '';
   const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
   try {
@@ -48,6 +49,10 @@ export async function GET(request: NextRequest) {
 
     if (parentId) {
       filters.push(`parent_id=eq.${parentId}`);
+    }
+
+    if (nodeId) {
+      filters.push(`node_id=eq.${encodeURIComponent(nodeId)}`);
     }
 
     // Append filters to URL
