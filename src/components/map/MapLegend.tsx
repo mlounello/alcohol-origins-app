@@ -94,7 +94,10 @@ export function MapLegend() {
               Connections
             </div>
             <div class="flex items-center gap-2">
-              <div class="w-6 border-t-2 border-dashed border-gray-400"></div>
+              <div class="flex items-center">
+                <div class="w-4 border-t-2 border-gray-400"></div>
+                <div style="width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid #9ca3af; margin-left: -1px;"></div>
+              </div>
               <span class="text-xs text-gray-600">Parent → Child</span>
             </div>
           </div>
