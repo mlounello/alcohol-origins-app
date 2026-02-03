@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/providers/AuthProvider';
+import { useSettings, AppSettings, DEFAULT_SETTINGS } from '@/providers/SettingsProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +23,6 @@ import {
   Settings,
   Map,
   Globe,
-  Palette,
   Database,
   ArrowLeft,
   Save,
@@ -32,63 +32,17 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-interface AppSettings {
-  // Map settings
-  defaultMapStyle: 'street' | 'light' | 'satellite' | 'dark';
-  defaultZoom: number;
-  defaultCenter: { lat: number; lng: number };
-  showFamilyTreeLines: boolean;
-  showLegend: boolean;
-
-  // General settings
-  siteName: string;
-  siteDescription: string;
-  allowPublicViewing: boolean;
-  requireLoginToView: boolean;
-
-  // Data settings
-  autoBackupEnabled: boolean;
-  backupFrequencyDays: number;
-}
-
-const DEFAULT_SETTINGS: AppSettings = {
-  defaultMapStyle: 'street',
-  defaultZoom: 2,
-  defaultCenter: { lat: 30, lng: 0 },
-  showFamilyTreeLines: true,
-  showLegend: true,
-  siteName: 'Alcohol Origins Map',
-  siteDescription: 'An interactive map exploring the history and origins of alcoholic beverages',
-  allowPublicViewing: true,
-  requireLoginToView: false,
-  autoBackupEnabled: false,
-  backupFrequencyDays: 7,
-};
-
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const { settings, updateSettings, resetSettings } = useSettings();
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   const isAdmin = profile?.role === 'admin';
 
-  useEffect(() => {
-    // Load settings from localStorage for now
-    // In a production app, you'd fetch from an API/database
-    const savedSettings = localStorage.getItem('appSettings');
-    if (savedSettings) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
-      } catch (e) {
-        console.error('Failed to parse saved settings');
-      }
-    }
-  }, []);
-
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    updateSettings({ [key]: value });
     setHasChanges(true);
     setStatus(null);
   };
@@ -98,14 +52,10 @@ export default function SettingsPage() {
     setStatus(null);
 
     try {
-      // Save to localStorage for now
-      // In a production app, you'd save to an API/database
-      localStorage.setItem('appSettings', JSON.stringify(settings));
+      // Settings are already saved via the provider
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setStatus({ type: 'success', message: 'Settings saved successfully!' });
+      setStatus({ type: 'success', message: 'Settings saved successfully! Refresh the map page to see changes.' });
       setHasChanges(false);
     } catch (error) {
       setStatus({ type: 'error', message: 'Failed to save settings' });
@@ -115,7 +65,7 @@ export default function SettingsPage() {
   };
 
   const handleReset = () => {
-    setSettings(DEFAULT_SETTINGS);
+    resetSettings();
     setHasChanges(true);
     setStatus(null);
   };

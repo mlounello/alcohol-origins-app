@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, useMap, LayersControl } from 'react-leaflet';
 import { Beverage } from '@/types/database';
 import { MAP_CONFIG, TILE_LAYERS } from '@/lib/constants';
+import { useSettings } from '@/providers/SettingsProvider';
 import { BeverageMarker } from './BeverageMarker';
 import { FamilyTreeLines } from './FamilyTreeLines';
 import { MapLegend } from './MapLegend';
@@ -48,35 +49,47 @@ export default function MapInner({
   allBeverages,
   onEditClick,
 }: MapInnerProps) {
+  const { settings } = useSettings();
+
+  // Map style name to checked status
+  const styleNames: Record<string, string> = {
+    street: 'Street (English)',
+    light: 'Light',
+    satellite: 'Satellite',
+    dark: 'Dark',
+  };
+
+  const defaultStyleName = styleNames[settings.defaultMapStyle] || 'Street (English)';
+
   return (
     <MapContainer
-      center={MAP_CONFIG.defaultCenter}
-      zoom={MAP_CONFIG.defaultZoom}
+      center={[settings.defaultCenter.lat, settings.defaultCenter.lng]}
+      zoom={settings.defaultZoom}
       minZoom={MAP_CONFIG.minZoom}
       maxZoom={MAP_CONFIG.maxZoom}
       className="w-full h-full z-0"
       style={{ background: '#1a1a2e' }}
     >
       <LayersControl position="topright">
-        <LayersControl.BaseLayer checked name="Street (English)">
+        <LayersControl.BaseLayer checked={defaultStyleName === 'Street (English)'} name="Street (English)">
           <TileLayer
             attribution={TILE_LAYERS.street.attribution}
             url={TILE_LAYERS.street.url}
           />
         </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Light">
+        <LayersControl.BaseLayer checked={defaultStyleName === 'Light'} name="Light">
           <TileLayer
             attribution={TILE_LAYERS.light.attribution}
             url={TILE_LAYERS.light.url}
           />
         </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Satellite">
+        <LayersControl.BaseLayer checked={defaultStyleName === 'Satellite'} name="Satellite">
           <TileLayer
             attribution={TILE_LAYERS.satellite.attribution}
             url={TILE_LAYERS.satellite.url}
           />
         </LayersControl.BaseLayer>
-        <LayersControl.BaseLayer name="Dark">
+        <LayersControl.BaseLayer checked={defaultStyleName === 'Dark'} name="Dark">
           <TileLayer
             attribution={TILE_LAYERS.dark.attribution}
             url={TILE_LAYERS.dark.url}
@@ -87,7 +100,9 @@ export default function MapInner({
       <MapController beverages={beverages} />
 
       {/* Family tree lines connecting parent-child relationships */}
-      <FamilyTreeLines beverages={beverages} allBeverages={allBeverages} />
+      {settings.showFamilyTreeLines && (
+        <FamilyTreeLines beverages={beverages} allBeverages={allBeverages} />
+      )}
 
       {/* Beverage markers */}
       {beverages.map((beverage) => (
@@ -99,7 +114,7 @@ export default function MapInner({
       ))}
 
       {/* Legend */}
-      <MapLegend />
+      {settings.showLegend && <MapLegend />}
     </MapContainer>
   );
 }

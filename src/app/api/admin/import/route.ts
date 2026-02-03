@@ -32,20 +32,14 @@ export async function DELETE() {
   }
 
   try {
-    // Delete all beverages
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/beverages?id=neq.00000000-0000-0000-0000-000000000000`,
-      {
-        method: 'DELETE',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-        },
-      }
-    );
+    // Delete all beverages using authenticated client
+    const { error } = await supabase
+      .from('beverages')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
-    if (!response.ok) {
-      console.warn('Warning clearing data:', await response.text());
+    if (error) {
+      console.warn('Warning clearing data:', error.message);
     }
 
     return NextResponse.json({ success: true });
@@ -74,32 +68,26 @@ export async function POST(request: NextRequest) {
     const nodeIdToUuid: Record<string, string> = {};
     let insertedCount = 0;
 
-    // Insert in batches of 50
+    // Insert in batches of 50 using the authenticated Supabase client
     const batchSize = 50;
     for (let i = 0; i < beverages.length; i += batchSize) {
       const batch = beverages.slice(i, i + batchSize);
 
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/beverages`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation',
-        },
-        body: JSON.stringify(batch),
-      });
+      const { data: inserted, error } = await supabase
+        .from('beverages')
+        .insert(batch)
+        .select();
 
-      if (!response.ok) {
-        const error = await response.text();
-        console.error(`Error inserting batch: ${error}`);
+      if (error) {
+        console.error(`Error inserting batch: ${error.message}`);
         continue;
       }
 
-      const inserted = await response.json();
-      for (const bev of inserted) {
-        nodeIdToUuid[bev.node_id] = bev.id;
-        insertedCount++;
+      if (inserted) {
+        for (const bev of inserted) {
+          nodeIdToUuid[bev.node_id] = bev.id;
+          insertedCount++;
+        }
       }
     }
 
