@@ -39,8 +39,8 @@ interface BeverageInsert {
   name: string;
   type: string;
   group: string;
-  latitude: number;
-  longitude: number;
+  latitude: string;
+  longitude: string;
   origin_region: string | null;
   origin_country: string | null;
   date_text: string;
