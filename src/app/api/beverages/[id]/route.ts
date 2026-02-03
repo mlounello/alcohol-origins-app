@@ -122,58 +122,41 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       updated_at: new Date().toISOString(),
     };
 
-    const updateUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?id=eq.${id}`;
-    const updateResponse = await fetch(updateUrl, {
-      method: 'PATCH',
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
-      },
-      body: JSON.stringify(updateData),
-    });
+    const { data: updatedBeverage, error: updateError } = await supabase
+      .from('beverages')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
 
-    if (!updateResponse.ok) {
-      const errorText = await updateResponse.text();
-      console.error('Supabase update error:', errorText);
+    if (updateError) {
+      console.error('Supabase update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update beverage' },
-        { status: updateResponse.status }
+        { status: 500 }
       );
     }
 
-    const [updatedBeverage] = await updateResponse.json();
-
     // Get latest revision number
-    const revisionCountUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverage_revisions?beverage_id=eq.${id}&select=revision_number&order=revision_number.desc&limit=1`;
-    const revisionCountResponse = await fetch(revisionCountUrl, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    const revisions = await revisionCountResponse.json();
-    const nextRevisionNumber = (revisions[0]?.revision_number || 0) + 1;
+    const { data: revisions } = await supabase
+      .from('beverage_revisions')
+      .select('revision_number')
+      .eq('beverage_id', id)
+      .order('revision_number', { ascending: false })
+      .limit(1);
+
+    const nextRevisionNumber = (revisions?.[0]?.revision_number || 0) + 1;
 
     // Create revision
-    const revisionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverage_revisions`;
-    await fetch(revisionUrl, {
-      method: 'POST',
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    await supabase
+      .from('beverage_revisions')
+      .insert({
         beverage_id: id,
         user_id: user.id,
         revision_number: nextRevisionNumber,
         data: updateData,
         change_summary: body.change_summary || 'Updated beverage information',
-      }),
-    });
+      });
 
     return NextResponse.json(updatedBeverage);
   } catch (error) {
