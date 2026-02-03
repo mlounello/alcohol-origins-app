@@ -1,36 +1,147 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Alcohol Origins Map
+
+An interactive geographic map visualizing the historical origins and evolution of alcoholic beverages. A collaborative wiki-style platform where users can contribute to tracing the family tree of beer, wine, spirits, and more.
+
+## Features
+
+- **Interactive Map**: Explore beverage origins on a world map with timeline filtering
+- **Family Tree Visualization**: See parent-child relationships between beverages
+- **Wiki-Style Collaboration**: Anyone can contribute with full revision history
+- **User Authentication**: Email/password and Google OAuth
+- **Role-Based Access**: Viewer, Contributor, Editor, Admin tiers
+
+## Tech Stack
+
+- **Frontend**: Next.js 14+ with App Router, TypeScript, Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Maps**: React-Leaflet
+- **Hosting**: Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- A Supabase account (free tier works)
+
+### 1. Clone and Install
+
+```bash
+git clone <your-repo-url>
+cd alcohol-origins-app
+npm install
+```
+
+### 2. Set Up Supabase
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to **Project Settings > API**
+3. Copy the **Project URL** and **anon public** key
+
+### 3. Configure Environment Variables
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your Supabase credentials:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+### 4. Run Database Migrations
+
+In your Supabase dashboard:
+
+1. Go to **SQL Editor**
+2. Create a new query
+3. Copy the contents of `supabase/migrations/001_initial_schema.sql`
+4. Run the query
+
+### 5. Enable Google OAuth (Optional)
+
+1. In Supabase, go to **Authentication > Providers**
+2. Enable Google
+3. Follow the instructions to set up OAuth credentials in Google Cloud Console
+4. Add your site URL to the redirect URLs
+
+### 6. Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── (auth)/            # Auth pages (login, register)
+│   ├── beverages/         # Beverage list/detail/edit pages
+│   ├── admin/             # Admin dashboard
+│   ├── recent-changes/    # Activity feed
+│   └── api/               # API routes
+├── components/
+│   ├── ui/                # shadcn/ui components
+│   ├── layout/            # Header, Footer
+│   ├── map/               # Map components
+│   ├── beverages/         # Beverage forms/cards
+│   └── auth/              # Auth forms
+├── lib/
+│   ├── supabase/          # Supabase client setup
+│   ├── utils/             # Utility functions
+│   └── constants.ts       # App constants
+├── providers/             # React context providers
+├── hooks/                 # Custom React hooks
+└── types/                 # TypeScript types
+```
 
-## Learn More
+## User Roles
 
-To learn more about Next.js, take a look at the following resources:
+| Role | Capabilities |
+|------|--------------|
+| **Viewer** | Browse map and data |
+| **Contributor** | Create and edit entries (default for new users) |
+| **Editor** | All above + revert edits |
+| **Admin** | All above + manage users, delete entries, bulk import |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data Migration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+To import data from the original Google Sheets:
 
-## Deploy on Vercel
+1. Export your Google Sheet as CSV
+2. Use the admin import tool at `/admin/import`
+3. Map the columns to the database fields
+4. Review and import
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Deploy to Vercel
+
+1. Push your code to GitHub
+2. Import the project in Vercel
+3. Add environment variables in Vercel settings
+4. Deploy
+
+The app will automatically deploy on every push to the main branch.
+
+## Contributing
+
+This is a wiki-style collaborative project. After creating an account, you can:
+
+1. Browse existing beverages
+2. Add new entries with geographic and historical data
+3. Edit existing entries (with full revision history)
+4. View the activity feed to see recent changes
+
+## License
+
+MIT
