@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, Loader2, CheckCircle, AlertCircle, FileUp } from 'lucide-react';
 
 interface ImportRow {
   node_id: string;
@@ -166,12 +168,37 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [progress, setProgress] = useState('');
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = profile?.role === 'admin';
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      setStatus({ type: 'error', message: 'Please upload a CSV file' });
+      return;
+    }
+
+    setFileName(file.name);
+    setStatus(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      setCsvData(text);
+    };
+    reader.onerror = () => {
+      setStatus({ type: 'error', message: 'Failed to read file' });
+    };
+    reader.readAsText(file);
+  };
+
   const handleImport = async () => {
     if (!csvData.trim()) {
-      setStatus({ type: 'error', message: 'Please paste CSV data first' });
+      setStatus({ type: 'error', message: 'Please upload a CSV file or paste CSV data first' });
       return;
     }
 
@@ -280,21 +307,69 @@ export default function ImportPage() {
         <CardHeader>
           <CardTitle>Import from CSV</CardTitle>
           <CardDescription>
-            Paste CSV data from Google Sheets. Expected columns: node_id, type, group, date,
+            Upload a CSV file or paste CSV data. Expected columns: node_id, type, group, date,
             latitude, longitude, parent_id, description, citation
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">CSV Data</label>
-            <Textarea
-              placeholder="Paste your CSV data here...&#10;&#10;node_id,type,group,date,latitude,longitude,parent_id,description,citation&#10;Beer,Beer,Grain,3500 BCE,33.3,44.4,,Ancient beer,Source..."
-              value={csvData}
-              onChange={(e) => setCsvData(e.target.value)}
-              rows={15}
-              className="font-mono text-sm"
-            />
-          </div>
+          <Tabs defaultValue="upload" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload">Upload File</TabsTrigger>
+              <TabsTrigger value="paste">Paste Data</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="upload" className="space-y-4">
+              <div className="space-y-4">
+                <div
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <FileUp className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-muted-foreground">CSV files only</p>
+                  {fileName && (
+                    <p className="mt-4 text-sm font-medium text-primary">
+                      Selected: {fileName}
+                    </p>
+                  )}
+                </div>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="paste" className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">CSV Data</label>
+                <Textarea
+                  placeholder="Paste your CSV data here...&#10;&#10;node_id,type,group,date,latitude,longitude,parent_id,description,citation&#10;Beer,Beer,Grain,3500 BCE,33.3,44.4,,Ancient beer,Source..."
+                  value={csvData}
+                  onChange={(e) => {
+                    setCsvData(e.target.value);
+                    setFileName(null);
+                  }}
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {csvData && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                {csvData.split('\n').filter(l => l.trim()).length - 1} rows ready to import
+                {fileName && ` from ${fileName}`}
+              </p>
+            </div>
+          )}
 
           {status && (
             <Alert variant={status.type === 'error' ? 'destructive' : 'default'}>
@@ -332,14 +407,13 @@ export default function ImportPage() {
           </div>
 
           <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h3 className="font-medium mb-2">Instructions</h3>
-            <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-              <li>Open your Google Sheet</li>
-              <li>Select all data (Cmd+A or Ctrl+A)</li>
-              <li>Copy (Cmd+C or Ctrl+C)</li>
-              <li>Paste into the text area above</li>
-              <li>Click "Import Data"</li>
-            </ol>
+            <h3 className="font-medium mb-2">Expected CSV Format</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Your CSV should have these columns (order doesn't matter):
+            </p>
+            <code className="text-xs bg-background p-2 rounded block overflow-x-auto">
+              node_id, type, group, date, latitude, longitude, parent_id, description, citation, origin_region, origin_country
+            </code>
           </div>
         </CardContent>
       </Card>
