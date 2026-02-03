@@ -90,8 +90,8 @@ export default function AdminPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" disabled>
-              Coming Soon
+            <Button asChild variant="outline">
+              <Link href="/admin/settings">Configure Settings</Link>
             </Button>
           </CardContent>
         </Card>
