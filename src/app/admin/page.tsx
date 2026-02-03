@@ -4,42 +4,56 @@ import Link from 'next/link';
 import { useAuth } from '@/providers/AuthProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Upload, Users, Database, Settings } from 'lucide-react';
 
 export default function AdminPage() {
   const { profile } = useAuth();
 
-  if (profile?.role !== 'admin') {
+  const isAdmin = profile?.role === 'admin';
+  const isModerator = profile?.role === 'moderator';
+  const hasAccess = isAdmin || isModerator;
+
+  if (!hasAccess) {
     return (
       <div className="container py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p className="text-muted-foreground">Only administrators can access this page.</p>
+        <p className="text-muted-foreground">Only administrators and moderators can access this page.</p>
       </div>
     );
   }
 
   return (
     <div className="container py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <Badge variant={isAdmin ? 'default' : 'secondary'}>
+          {profile?.role}
+        </Badge>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Import Data
-            </CardTitle>
-            <CardDescription>
-              Import beverages from CSV or Google Sheets
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link href="/admin/import">Go to Import</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Import Data - Admin only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Import Data
+              </CardTitle>
+              <CardDescription>
+                Import beverages from CSV or Google Sheets
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild>
+                <Link href="/admin/import">Go to Import</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
+        {/* User Management - Admin and Moderator */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -47,7 +61,9 @@ export default function AdminPage() {
               User Management
             </CardTitle>
             <CardDescription>
-              Manage user roles and permissions
+              {isAdmin
+                ? 'Manage user roles and permissions'
+                : 'Manage user roles (viewer, contributor, editor)'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -57,44 +73,50 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Database
-            </CardTitle>
-            <CardDescription>
-              View database statistics and manage data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">
-              Open Supabase Dashboard for full database access
-            </p>
-            <Button asChild variant="outline">
-              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer">
-                Supabase Dashboard
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Database - Admin only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Database
+              </CardTitle>
+              <CardDescription>
+                View database statistics and manage data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Open Supabase Dashboard for full database access
+              </p>
+              <Button asChild variant="outline">
+                <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer">
+                  Supabase Dashboard
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Settings
-            </CardTitle>
-            <CardDescription>
-              Configure application settings
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline">
-              <Link href="/admin/settings">Configure Settings</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Settings - Admin only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Settings
+              </CardTitle>
+              <CardDescription>
+                Configure application settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline">
+                <Link href="/admin/settings">Configure Settings</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

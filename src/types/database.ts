@@ -1,4 +1,4 @@
-export type UserRole = 'viewer' | 'contributor' | 'editor' | 'admin';
+export type UserRole = 'viewer' | 'contributor' | 'editor' | 'moderator' | 'admin';
 
 export type BeverageGroup = 'Grain' | 'Grape' | 'Sugar' | 'Cactus' | 'Other';
 

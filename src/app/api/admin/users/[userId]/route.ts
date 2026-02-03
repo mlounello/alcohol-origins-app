@@ -6,7 +6,7 @@ interface RouteParams {
   params: Promise<{ userId: string }>;
 }
 
-const VALID_ROLES: UserRole[] = ['viewer', 'contributor', 'editor', 'admin'];
+const VALID_ROLES: UserRole[] = ['viewer', 'contributor', 'editor', 'moderator', 'admin'];
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { userId } = await params;
@@ -21,16 +21,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  // Check if user is admin
+  // Check if user is admin or moderator
   const { data: currentProfile } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
 
-  if (currentProfile?.role !== 'admin') {
+  const isAdmin = currentProfile?.role === 'admin';
+  const isModerator = currentProfile?.role === 'moderator';
+
+  if (!isAdmin && !isModerator) {
     return NextResponse.json(
-      { error: 'Admin access required' },
+      { error: 'Admin or moderator access required' },
       { status: 403 }
     );
   }
@@ -43,6 +46,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
+  // Get target user's current role
+  const { data: targetProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  // Moderators cannot edit admins or other moderators
+  if (isModerator && !isAdmin) {
+    if (targetProfile?.role === 'admin' || targetProfile?.role === 'moderator') {
+      return NextResponse.json(
+        { error: 'Moderators cannot modify admin or moderator accounts' },
+        { status: 403 }
+      );
+    }
+  }
+
   try {
     const body = await request.json();
     const { role } = body;
@@ -52,6 +72,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: 'Invalid role' },
         { status: 400 }
+      );
+    }
+
+    // Moderators cannot assign admin or moderator roles
+    if (isModerator && !isAdmin && (role === 'admin' || role === 'moderator')) {
+      return NextResponse.json(
+        { error: 'Moderators cannot assign admin or moderator roles' },
+        { status: 403 }
       );
     }
 

@@ -14,16 +14,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Check if user is admin
+  // Check if user is admin or moderator
   const { data: currentProfile } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
 
-  if (currentProfile?.role !== 'admin') {
+  if (currentProfile?.role !== 'admin' && currentProfile?.role !== 'moderator') {
     return NextResponse.json(
-      { error: 'Admin access required' },
+      { error: 'Admin or moderator access required' },
       { status: 403 }
     );
   }

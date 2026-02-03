@@ -46,7 +46,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   viewer: ['read'],
   contributor: ['read', 'create', 'edit'],
   editor: ['read', 'create', 'edit', 'revert', 'lock'],
-  admin: ['read', 'create', 'edit', 'revert', 'lock', 'delete', 'manage_users', 'import'],
+  moderator: ['read', 'create', 'edit', 'revert', 'lock', 'manage_users'],
+  admin: ['read', 'create', 'edit', 'revert', 'lock', 'delete', 'manage_users', 'import', 'manage_settings'],
 };
 
 // Check if a role can perform an action

@@ -34,12 +34,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const ROLES: UserRole[] = ['viewer', 'contributor', 'editor', 'admin'];
+const ROLES: UserRole[] = ['viewer', 'contributor', 'editor', 'moderator', 'admin'];
 
 const ROLE_COLORS: Record<UserRole, string> = {
   viewer: 'bg-gray-100 text-gray-800',
   contributor: 'bg-blue-100 text-blue-800',
   editor: 'bg-green-100 text-green-800',
+  moderator: 'bg-orange-100 text-orange-800',
   admin: 'bg-purple-100 text-purple-800',
 };
 
@@ -47,7 +48,8 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   viewer: 'Can view all data',
   contributor: 'Can create and edit entries',
   editor: 'Can revert changes and lock entries',
-  admin: 'Full access including user management',
+  moderator: 'Can manage users (except admins) and moderate content',
+  admin: 'Full access including settings and data import',
 };
 
 export default function UsersPage() {
@@ -60,6 +62,8 @@ export default function UsersPage() {
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const isAdmin = currentUserProfile?.role === 'admin';
+  const isModerator = currentUserProfile?.role === 'moderator';
+  const canManageUsers = isAdmin || isModerator;
 
   useEffect(() => {
     async function fetchUsers() {
@@ -78,12 +82,12 @@ export default function UsersPage() {
       }
     }
 
-    if (isAdmin) {
+    if (canManageUsers) {
       fetchUsers();
     } else {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, [canManageUsers]);
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     if (userId === currentUserProfile?.id) {
@@ -127,14 +131,30 @@ export default function UsersPage() {
     );
   });
 
-  if (!isAdmin) {
+  if (!canManageUsers) {
     return (
       <div className="container py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-        <p className="text-muted-foreground">Only administrators can manage users.</p>
+        <p className="text-muted-foreground">Only moderators and administrators can manage users.</p>
       </div>
     );
   }
+
+  // Roles that moderators can assign (excludes admin and moderator)
+  const assignableRoles = isModerator && !isAdmin
+    ? ROLES.filter(r => r !== 'admin' && r !== 'moderator')
+    : ROLES;
+
+  // Check if the current user can edit a target user
+  const canEditUser = (targetUser: Profile) => {
+    // Can't edit yourself
+    if (targetUser.id === currentUserProfile?.id) return false;
+    // Admins can edit anyone
+    if (isAdmin) return true;
+    // Moderators can't edit admins or other moderators
+    if (isModerator && (targetUser.role === 'admin' || targetUser.role === 'moderator')) return false;
+    return true;
+  };
 
   if (loading) {
     return (
@@ -265,8 +285,10 @@ export default function UsersPage() {
                       {new Date(user.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      {user.id === currentUserProfile?.id ? (
-                        <span className="text-sm text-muted-foreground">—</span>
+                      {!canEditUser(user) ? (
+                        <span className="text-sm text-muted-foreground">
+                          {user.id === currentUserProfile?.id ? '(you)' : 'Protected'}
+                        </span>
                       ) : (
                         <Select
                           value={user.role}
@@ -281,7 +303,7 @@ export default function UsersPage() {
                             )}
                           </SelectTrigger>
                           <SelectContent>
-                            {ROLES.map((role) => (
+                            {assignableRoles.map((role) => (
                               <SelectItem key={role} value={role}>
                                 <div className="flex items-center gap-2">
                                   <Shield className="h-3 w-3" />
@@ -306,7 +328,7 @@ export default function UsersPage() {
           <CardTitle className="text-lg">Role Permissions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {ROLES.map((role) => (
               <div key={role} className="p-4 rounded-lg border">
                 <Badge className={`${ROLE_COLORS[role]} mb-2`}>{role}</Badge>
