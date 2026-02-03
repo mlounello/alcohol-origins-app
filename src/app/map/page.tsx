@@ -1,18 +1,20 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Beverage } from '@/types/database';
 import { MapContainer } from '@/components/map/MapContainer';
 import { FilterPanel, FilterState } from '@/components/map/FilterPanel';
 import { TimelineSlider } from '@/components/map/TimelineSlider';
+import { BeverageDetailSheet } from '@/components/map/BeverageDetailSheet';
 
 export default function MapPage() {
-  const router = useRouter();
   const [beverages, setBeverages] = useState<Beverage[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectedBeverage, setSelectedBeverage] = useState<Beverage | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -134,7 +136,15 @@ export default function MapPage() {
   }, [beverages, filters, showTimeline, timelineYear]);
 
   const handleBeverageClick = (beverage: Beverage) => {
-    router.push(`/beverages/${beverage.id}`);
+    setSelectedBeverage(beverage);
+    setSheetOpen(true);
+  };
+
+  const handleBeverageSave = (updated: Beverage) => {
+    setBeverages((prev) =>
+      prev.map((b) => (b.id === updated.id ? updated : b))
+    );
+    setSelectedBeverage(updated);
   };
 
   if (loading) {
@@ -214,6 +224,15 @@ export default function MapPage() {
           </div>
         )}
       </div>
+
+      {/* Detail slide-out sheet */}
+      <BeverageDetailSheet
+        beverage={selectedBeverage}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onSave={handleBeverageSave}
+        allBeverages={beverages}
+      />
     </div>
   );
 }

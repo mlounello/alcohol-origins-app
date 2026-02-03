@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, LayersControl } from 'react-leaflet';
 import { Beverage } from '@/types/database';
-import { MAP_CONFIG, TILE_LAYERS, GROUP_COLORS } from '@/lib/constants';
+import { MAP_CONFIG, TILE_LAYERS } from '@/lib/constants';
 import { BeverageMarker } from './BeverageMarker';
 import { FamilyTreeLines } from './FamilyTreeLines';
 import { MapLegend } from './MapLegend';
@@ -57,10 +57,32 @@ export default function MapInner({
       className="w-full h-full z-0"
       style={{ background: '#1a1a2e' }}
     >
-      <TileLayer
-        attribution={TILE_LAYERS.street.attribution}
-        url={TILE_LAYERS.street.url}
-      />
+      <LayersControl position="topright">
+        <LayersControl.BaseLayer checked name="Street (English)">
+          <TileLayer
+            attribution={TILE_LAYERS.street.attribution}
+            url={TILE_LAYERS.street.url}
+          />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name="Light">
+          <TileLayer
+            attribution={TILE_LAYERS.light.attribution}
+            url={TILE_LAYERS.light.url}
+          />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name="Satellite">
+          <TileLayer
+            attribution={TILE_LAYERS.satellite.attribution}
+            url={TILE_LAYERS.satellite.url}
+          />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name="Dark">
+          <TileLayer
+            attribution={TILE_LAYERS.dark.attribution}
+            url={TILE_LAYERS.dark.url}
+          />
+        </LayersControl.BaseLayer>
+      </LayersControl>
 
       <MapController beverages={beverages} />
 
