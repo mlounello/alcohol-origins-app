@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { Beverage, BeverageGroup } from '@/types/database';
-import { GROUP_COLORS, BEVERAGE_GROUPS, BEVERAGE_TYPES } from '@/lib/constants';
+import { GROUP_COLORS, BEVERAGE_GROUPS, BEVERAGE_TYPES, getContrastTextColor } from '@/lib/constants';
 import { formatDateText } from '@/lib/utils/dates';
 import { useAuth } from '@/providers/AuthProvider';
 import {
@@ -160,13 +160,15 @@ export function BeverageDetailSheet({
                 <Wine className="h-4 w-4" />
                 {beverage.type}
                 <span
-                  className="w-3 h-3 rounded-full ml-2"
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ml-1"
                   style={{
                     backgroundColor: groupColor,
-                    border: groupColor === '#FFFFFF' ? '1px solid #666' : 'none',
+                    color: getContrastTextColor(groupColor),
+                    border: groupColor === '#FFFFFF' ? '1px solid #ccc' : 'none',
                   }}
-                />
-                {beverage.group}
+                >
+                  {beverage.group}
+                </span>
               </SheetDescription>
             </div>
             {canEdit && !isEditing && (

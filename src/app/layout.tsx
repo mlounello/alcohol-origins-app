@@ -1,21 +1,10 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { SettingsProvider } from '@/providers/SettingsProvider';
 import { Header } from '@/components/layout/Header';
 import { Toaster } from '@/components/ui/sonner';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Alcohol Origins - Interactive Map of Beverage History',
@@ -40,9 +29,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-      >
+      <head>
+        {/* Google Fonts - Brand Typography */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Gudea:wght@400;700&family=Merriweather:wght@300;400;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="antialiased min-h-screen flex flex-col">
         <QueryProvider>
           <AuthProvider>
             <SettingsProvider>

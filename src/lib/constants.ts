@@ -55,6 +55,26 @@ export function canPerformAction(role: UserRole, action: string): boolean {
   return ROLE_PERMISSIONS[role]?.includes(action) ?? false;
 }
 
+// Calculate relative luminance of a hex color
+function getLuminance(hex: string): number {
+  const rgb = hex.replace('#', '').match(/.{2}/g);
+  if (!rgb) return 0;
+
+  const [r, g, b] = rgb.map((c) => {
+    const val = parseInt(c, 16) / 255;
+    return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+  });
+
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// Get the best contrasting text color (black or white) for a given background color
+export function getContrastTextColor(bgColor: string): string {
+  const luminance = getLuminance(bgColor);
+  // Use white text on dark backgrounds, black on light
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
+}
+
 // Beverage types (expandable)
 export const BEVERAGE_TYPES = [
   'Beer',

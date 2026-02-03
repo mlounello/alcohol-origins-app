@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Beverage, BeverageRevision, Profile } from '@/types/database';
-import { GROUP_COLORS } from '@/lib/constants';
+import { GROUP_COLORS, getContrastTextColor } from '@/lib/constants';
 import { formatDateText } from '@/lib/utils/dates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,9 +19,12 @@ import {
   GitBranch,
   History,
   Lock,
-  ExternalLink
+  Unlock,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
+import { toast } from 'sonner';
 
 export default function BeverageDetailPage() {
   const params = useParams();
@@ -34,6 +37,7 @@ export default function BeverageDetailPage() {
   const [revisions, setRevisions] = useState<BeverageRevision[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lockLoading, setLockLoading] = useState(false);
 
   const id = params.id as string;
 
@@ -90,7 +94,35 @@ export default function BeverageDetailPage() {
     }
   }, [id]);
 
-  const canEdit = profile && ['contributor', 'editor', 'admin'].includes(profile.role);
+  const canEdit = profile && ['contributor', 'editor', 'moderator', 'admin'].includes(profile.role);
+  const canLock = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
+
+  const handleToggleLock = async () => {
+    if (!beverage || !canLock) return;
+
+    setLockLoading(true);
+    try {
+      const response = await fetch(`/api/beverages/${id}/lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lock: !beverage.is_locked }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update lock status');
+      }
+
+      const data = await response.json();
+      setBeverage({ ...beverage, is_locked: data.is_locked });
+      toast.success(data.message);
+    } catch (err) {
+      console.error('Error toggling lock:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update lock status');
+    } finally {
+      setLockLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -147,26 +179,46 @@ export default function BeverageDetailPage() {
               <Wine className="h-4 w-4" />
               {beverage.type}
             </span>
-            <span className="flex items-center gap-2">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{
-                  backgroundColor: groupColor,
-                  border: groupColor === '#FFFFFF' ? '1px solid #666' : 'none',
-                }}
-              />
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{
+                backgroundColor: groupColor,
+                color: getContrastTextColor(groupColor),
+                border: groupColor === '#FFFFFF' ? '1px solid #ccc' : 'none',
+              }}
+            >
               {beverage.group}
             </span>
           </div>
         </div>
 
-        {canEdit && (
-          <Button asChild>
-            <Link href={`/beverages/${id}/edit`}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canLock && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToggleLock}
+              disabled={lockLoading}
+              className={beverage.is_locked ? 'text-orange-600 hover:text-orange-700' : ''}
+            >
+              {lockLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : beverage.is_locked ? (
+                <Unlock className="mr-2 h-4 w-4" />
+              ) : (
+                <Lock className="mr-2 h-4 w-4" />
+              )}
+              {beverage.is_locked ? 'Unlock' : 'Lock'}
+            </Button>
+          )}
+          {canEdit && (
+            <Button asChild>
+              <Link href={`/beverages/${id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="details" className="space-y-6">
@@ -280,21 +332,24 @@ export default function BeverageDetailPage() {
                   </h4>
                   <Link
                     href={`/beverages/${parent.id}`}
-                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                   >
-                    <span
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: GROUP_COLORS[parent.group],
-                        border: GROUP_COLORS[parent.group] === '#FFFFFF' ? '1px solid #666' : 'none',
-                      }}
-                    />
                     <div>
                       <p className="font-medium">{parent.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {parent.type} · {parent.origin_country || parent.origin_region || 'Unknown origin'}
                       </p>
                     </div>
+                    <span
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
+                      style={{
+                        backgroundColor: GROUP_COLORS[parent.group],
+                        color: getContrastTextColor(GROUP_COLORS[parent.group]),
+                        border: GROUP_COLORS[parent.group] === '#FFFFFF' ? '1px solid #ccc' : 'none',
+                      }}
+                    >
+                      {parent.group}
+                    </span>
                   </Link>
                 </div>
               )}
@@ -310,21 +365,24 @@ export default function BeverageDetailPage() {
                       <Link
                         key={child.id}
                         href={`/beverages/${child.id}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                       >
-                        <span
-                          className="w-4 h-4 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: GROUP_COLORS[child.group],
-                            border: GROUP_COLORS[child.group] === '#FFFFFF' ? '1px solid #666' : 'none',
-                          }}
-                        />
                         <div>
                           <p className="font-medium">{child.name}</p>
                           <p className="text-sm text-muted-foreground">
                             {child.type} · {child.origin_country || child.origin_region || 'Unknown origin'}
                           </p>
                         </div>
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
+                          style={{
+                            backgroundColor: GROUP_COLORS[child.group],
+                            color: getContrastTextColor(GROUP_COLORS[child.group]),
+                            border: GROUP_COLORS[child.group] === '#FFFFFF' ? '1px solid #ccc' : 'none',
+                          }}
+                        >
+                          {child.group}
+                        </span>
                       </Link>
                     ))}
                   </div>

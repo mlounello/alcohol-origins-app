@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Beverage, BeverageGroup } from '@/types/database';
-import { GROUP_COLORS, BEVERAGE_GROUPS } from '@/lib/constants';
+import { GROUP_COLORS, BEVERAGE_GROUPS, getContrastTextColor } from '@/lib/constants';
 import { formatDateText } from '@/lib/utils/dates';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -209,19 +209,16 @@ export default function BeveragesPage() {
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h3 className="font-semibold line-clamp-1">{beverage.name}</h3>
-                    <Badge
-                      variant="secondary"
-                      className="flex-shrink-0 gap-1"
+                    <span
+                      className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={{
+                        backgroundColor: groupColor,
+                        color: getContrastTextColor(groupColor),
+                        border: groupColor === '#FFFFFF' ? '1px solid #ccc' : 'none',
+                      }}
                     >
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{
-                          backgroundColor: groupColor,
-                          border: groupColor === '#FFFFFF' ? '1px solid #666' : 'none',
-                        }}
-                      />
                       {beverage.group}
-                    </Badge>
+                    </span>
                   </div>
 
                   <div className="space-y-1 text-sm text-muted-foreground">

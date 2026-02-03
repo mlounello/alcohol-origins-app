@@ -6,8 +6,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-gudea);
   --font-mono: var(--font-geist-mono);
+  --font-headline: var(--font-oswald);
+  --font-body: var(--font-merriweather);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -44,75 +46,116 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Brand Colors */
+  --color-brand-green: #006b54;
+  --color-brand-gold: #FCC917;
+  --color-brand-green-dark: #1b4932;
+  --color-brand-gray: #CFC9C4;
+  --color-brand-green-light: #0DB02B;
+  --color-brand-red: #B01C2E;
+  --color-brand-blue: #008ab1;
 }
 
 :root {
+  /* Font families */
+  --font-oswald: 'Oswald', sans-serif;
+  --font-gudea: 'Gudea', sans-serif;
+  --font-merriweather: 'Merriweather', serif;
+
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Brand-themed light mode */
+  --background: #FFFFFF;
+  --foreground: #1b4932;
+  --card: #FFFFFF;
+  --card-foreground: #1b4932;
+  --popover: #FFFFFF;
+  --popover-foreground: #1b4932;
+
+  /* Primary: Brand Green */
+  --primary: #006b54;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary: Brand Gold */
+  --secondary: #FCC917;
+  --secondary-foreground: #1b4932;
+
+  /* Muted: Brand Gray */
+  --muted: #f5f4f3;
+  --muted-foreground: #6b6560;
+
+  /* Accent: Light Green */
+  --accent: #e6f5e9;
+  --accent-foreground: #006b54;
+
+  /* Destructive: Brand Red */
+  --destructive: #B01C2E;
+
+  --border: #CFC9C4;
+  --input: #CFC9C4;
+  --ring: #006b54;
+
+  /* Charts use brand colors */
+  --chart-1: #006b54;
+  --chart-2: #FCC917;
+  --chart-3: #0DB02B;
+  --chart-4: #008ab1;
+  --chart-5: #B01C2E;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1b4932;
+  --sidebar-primary: #006b54;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #e6f5e9;
+  --sidebar-accent-foreground: #006b54;
+  --sidebar-border: #CFC9C4;
+  --sidebar-ring: #006b54;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1b4932;
+  --foreground: #FFFFFF;
+  --card: #0d2a1f;
+  --card-foreground: #FFFFFF;
+  --popover: #0d2a1f;
+  --popover-foreground: #FFFFFF;
+
+  /* Primary: Brand Gold in dark mode for contrast */
+  --primary: #FCC917;
+  --primary-foreground: #1b4932;
+
+  /* Secondary */
+  --secondary: #006b54;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #2a5a45;
+  --muted-foreground: #CFC9C4;
+
+  --accent: #006b54;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #ff6b7a;
+
+  --border: rgba(255, 255, 255, 0.15);
+  --input: rgba(255, 255, 255, 0.2);
+  --ring: #FCC917;
+
+  --chart-1: #FCC917;
+  --chart-2: #0DB02B;
+  --chart-3: #008ab1;
+  --chart-4: #ff6b7a;
+  --chart-5: #FFFFFF;
+
+  --sidebar: #0d2a1f;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FCC917;
+  --sidebar-primary-foreground: #1b4932;
+  --sidebar-accent: #006b54;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.15);
+  --sidebar-ring: #FCC917;
 }
 
 @layer base {
@@ -121,5 +164,82 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-merriweather);
   }
+
+  /* Headline typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-oswald);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl font-bold;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl font-semibold;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl font-semibold;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl font-medium;
+  }
+
+  /* Subheadlines and callouts use Gudea */
+  .subhead, .callout {
+    font-family: var(--font-gudea);
+    text-transform: none;
+  }
+
+  /* Body copy uses Merriweather */
+  p, li, td, th {
+    font-family: var(--font-merriweather);
+  }
+
+  /* UI elements use Gudea for readability */
+  button, input, select, textarea, label {
+    font-family: var(--font-gudea);
+  }
+
+  /* Nav items use Gudea */
+  nav, .nav-item {
+    font-family: var(--font-gudea);
+  }
+}
+
+/* Brand gradient utility */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #006b54 0%, #1b4932 100%);
+}
+
+.text-brand-gradient {
+  background: linear-gradient(135deg, #006b54 0%, #1b4932 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gold accent gradient */
+.bg-gold-gradient {
+  background: linear-gradient(135deg, #FCC917 0%, #d4a810 100%);
+}
+
+/* Display headline class (for Sullivan-like treatment) */
+.display-headline {
+  font-family: var(--font-oswald);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Impact-style headlines */
+.impact-headline {
+  font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }

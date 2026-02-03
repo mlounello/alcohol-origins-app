@@ -1,8 +1,6 @@
--- Migration: Add moderator role and change default to viewer
+-- Migration: Update policies to include moderator role
 -- ============================================
-
--- Add 'moderator' to the user_role enum
-ALTER TYPE user_role ADD VALUE 'moderator' BEFORE 'admin';
+-- NOTE: Run this AFTER 002_add_moderator_enum.sql has been committed
 
 -- Change default role from 'contributor' to 'viewer'
 ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'viewer';
@@ -32,9 +30,6 @@ CREATE POLICY "Contributors can create revisions"
 CREATE POLICY "Admins and moderators can update profiles"
   ON public.profiles FOR UPDATE
   USING (public.get_user_role() IN ('moderator', 'admin'));
-
--- Update the get_user_role function to return 'viewer' as fallback (already does)
--- No changes needed for the function
 
 -- Add is_locked field to beverages if not exists (for locking entries)
 DO $$

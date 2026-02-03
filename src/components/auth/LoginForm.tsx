@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,17 +62,28 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-        <CardDescription>
-          Sign in to your account to continue
-        </CardDescription>
+    <Card className="w-full max-w-md border-brand-gray/50 shadow-lg">
+      <CardHeader className="space-y-4 text-center">
+        <div className="flex justify-center">
+          <Image
+            src="/logo-square.png"
+            alt="Alcohol Origins"
+            width={80}
+            height={80}
+            className="rounded-lg"
+          />
+        </div>
+        <div>
+          <CardTitle className="text-2xl font-bold text-brand-green">Welcome Back</CardTitle>
+          <CardDescription className="mt-2">
+            Sign in to your account to continue
+          </CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button
           variant="outline"
-          className="w-full"
+          className="w-full border-brand-gray hover:bg-brand-green/5 hover:border-brand-green"
           onClick={handleGoogleLogin}
           disabled={isLoading}
         >
@@ -98,7 +110,7 @@ export function LoginForm() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
+            <span className="w-full border-t border-brand-gray/50" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">
@@ -118,6 +130,7 @@ export function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              className="border-brand-gray focus:border-brand-green focus:ring-brand-green"
             />
           </div>
           <div className="space-y-2">
@@ -129,17 +142,22 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              className="border-brand-gray focus:border-brand-green focus:ring-brand-green"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full bg-brand-green hover:bg-brand-green-dark text-white font-semibold"
+            disabled={isLoading}
+          >
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="justify-center">
         <p className="text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-primary hover:underline">
+          <Link href="/register" className="text-brand-green font-medium hover:underline">
             Sign up
           </Link>
         </p>

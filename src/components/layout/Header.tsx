@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth, usePermissions } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -48,12 +49,12 @@ export function Header() {
   const displayName = profile?.display_name || user?.user_metadata?.full_name || user?.email || 'User';
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
+    <header className="sticky top-0 z-50 w-full border-b border-brand-gray/30 bg-brand-gradient text-white shadow-md">
+      <div className="container flex h-16 items-center">
         {/* Mobile menu */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden">
+            <Button variant="ghost" size="icon" className="md:hidden text-white hover:bg-white/10">
               <svg
                 className="h-5 w-5"
                 fill="none"
@@ -70,17 +71,29 @@ export function Header() {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[240px]">
-            <nav className="flex flex-col gap-4 mt-4">
+          <SheetContent side="left" className="w-[280px] bg-brand-gradient border-r-0">
+            <div className="flex items-center gap-3 mb-6 pt-2">
+              <Image
+                src="/logo-square.png"
+                alt="Alcohol Origins"
+                width={40}
+                height={40}
+                className="rounded"
+              />
+              <span className="font-headline text-lg text-white uppercase tracking-wide">
+                Alcohol Origins
+              </span>
+            </div>
+            <nav className="flex flex-col gap-2">
               {allNavigation.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'text-sm font-medium transition-colors hover:text-primary',
+                    'text-sm font-medium transition-colors px-3 py-2 rounded-md',
                     pathname === item.href
-                      ? 'text-foreground'
-                      : 'text-muted-foreground'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
                   )}
                 >
                   {item.name}
@@ -91,24 +104,35 @@ export function Header() {
         </Sheet>
 
         {/* Logo */}
-        <Link href="/" className="mr-6 flex items-center space-x-2">
-          <span className="text-xl">🍺</span>
-          <span className="hidden font-bold sm:inline-block">
-            Alcohol Origins
-          </span>
+        <Link href="/" className="mr-8 flex items-center gap-3 group">
+          <Image
+            src="/logo-square.png"
+            alt="Alcohol Origins"
+            width={40}
+            height={40}
+            className="rounded transition-transform group-hover:scale-105"
+          />
+          <div className="hidden sm:flex flex-col">
+            <span className="font-headline text-lg uppercase tracking-wide leading-tight text-white">
+              Alcohol Origins
+            </span>
+            <span className="text-[10px] text-white/70 uppercase tracking-widest">
+              Interactive Map
+            </span>
+          </div>
         </Link>
 
         {/* Desktop navigation */}
-        <nav className="hidden md:flex items-center gap-6 text-sm">
+        <nav className="hidden md:flex items-center gap-1">
           {allNavigation.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'transition-colors hover:text-foreground/80',
+                'px-4 py-2 rounded-md text-sm font-medium transition-all',
                 pathname === item.href
-                  ? 'text-foreground font-medium'
-                  : 'text-foreground/60'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
               )}
             >
               {item.name}
@@ -117,18 +141,18 @@ export function Header() {
         </nav>
 
         {/* Right side */}
-        <div className="flex flex-1 items-center justify-end space-x-2">
+        <div className="flex flex-1 items-center justify-end space-x-3">
           {isLoading ? (
-            <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+            <div className="h-9 w-9 animate-pulse rounded-full bg-white/20" />
           ) : user ? (
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-transparent hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all cursor-pointer">
+              <DropdownMenuTrigger className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-white/30 hover:border-brand-gold focus:outline-none focus:ring-2 focus:ring-brand-gold focus:ring-offset-2 focus:ring-offset-brand-green transition-all cursor-pointer">
                 <Avatar className="h-full w-full">
                   <AvatarImage
                     src={profile?.avatar_url ?? undefined}
                     alt={profile?.display_name ?? 'User'}
                   />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                  <AvatarFallback className="bg-brand-gold text-brand-green-dark text-sm font-bold">
                     {getInitials(displayName)}
                   </AvatarFallback>
                 </Avatar>
@@ -143,7 +167,7 @@ export function Header() {
                       {profile?.email || user.email}
                     </p>
                     {profile?.role && (
-                      <p className="text-xs text-muted-foreground capitalize">
+                      <p className="text-xs text-brand-green capitalize font-medium">
                         {profile.role}
                       </p>
                     )}
@@ -158,7 +182,7 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="cursor-pointer text-destructive focus:text-destructive"
+                  className="cursor-pointer text-brand-red focus:text-brand-red"
                   onClick={() => signOut()}
                 >
                   Sign out
@@ -167,10 +191,17 @@ export function Header() {
             </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" asChild>
+              <Button
+                variant="ghost"
+                asChild
+                className="text-white/90 hover:text-white hover:bg-white/10"
+              >
                 <Link href="/login">Sign in</Link>
               </Button>
-              <Button asChild>
+              <Button
+                asChild
+                className="bg-brand-gold text-brand-green-dark hover:bg-brand-gold/90 font-semibold"
+              >
                 <Link href="/register">Sign up</Link>
               </Button>
             </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,17 +68,28 @@ export function RegisterForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-        <CardDescription>
-          Join our community to contribute to the history of alcohol
-        </CardDescription>
+    <Card className="w-full max-w-md border-brand-gray/50 shadow-lg">
+      <CardHeader className="space-y-4 text-center">
+        <div className="flex justify-center">
+          <Image
+            src="/logo-square.png"
+            alt="Alcohol Origins"
+            width={80}
+            height={80}
+            className="rounded-lg"
+          />
+        </div>
+        <div>
+          <CardTitle className="text-2xl font-bold text-brand-green">Create an Account</CardTitle>
+          <CardDescription className="mt-2">
+            Join our community to contribute to the history of alcohol
+          </CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button
           variant="outline"
-          className="w-full"
+          className="w-full border-brand-gray hover:bg-brand-green/5 hover:border-brand-green"
           onClick={handleGoogleLogin}
           disabled={isLoading}
         >
@@ -104,7 +116,7 @@ export function RegisterForm() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
+            <span className="w-full border-t border-brand-gray/50" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">
@@ -124,6 +136,7 @@ export function RegisterForm() {
               onChange={(e) => setDisplayName(e.target.value)}
               required
               disabled={isLoading}
+              className="border-brand-gray focus:border-brand-green focus:ring-brand-green"
             />
           </div>
           <div className="space-y-2">
@@ -136,6 +149,7 @@ export function RegisterForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              className="border-brand-gray focus:border-brand-green focus:ring-brand-green"
             />
           </div>
           <div className="space-y-2">
@@ -149,9 +163,14 @@ export function RegisterForm() {
               required
               minLength={6}
               disabled={isLoading}
+              className="border-brand-gray focus:border-brand-green focus:ring-brand-green"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full bg-brand-green hover:bg-brand-green-dark text-white font-semibold"
+            disabled={isLoading}
+          >
             {isLoading ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
@@ -161,10 +180,10 @@ export function RegisterForm() {
           follow our community guidelines.
         </p>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="justify-center">
         <p className="text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href="/login" className="text-brand-green font-medium hover:underline">
             Sign in
           </Link>
         </p>

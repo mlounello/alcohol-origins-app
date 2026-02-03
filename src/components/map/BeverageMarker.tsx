@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { CircleMarker, Popup } from 'react-leaflet';
 import { Beverage } from '@/types/database';
-import { GROUP_COLORS } from '@/lib/constants';
+import { GROUP_COLORS, getContrastTextColor } from '@/lib/constants';
 import { computeRadius, formatDateText } from '@/lib/utils/dates';
 
 interface BeverageMarkerProps {
@@ -14,6 +14,7 @@ interface BeverageMarkerProps {
 export function BeverageMarker({ beverage, onEditClick }: BeverageMarkerProps) {
   const color = GROUP_COLORS[beverage.group] || GROUP_COLORS.Other;
   const radius = computeRadius(beverage.date_year || 0);
+  const textColor = getContrastTextColor(color);
 
   // Adjust color for better visibility on dark backgrounds
   const fillColor = color;
@@ -38,13 +39,18 @@ export function BeverageMarker({ beverage, onEditClick }: BeverageMarkerProps) {
             <p>
               <span className="font-medium">Type:</span> {beverage.type}
             </p>
-            <p>
+            <p className="flex items-center gap-1">
               <span className="font-medium">Group:</span>{' '}
               <span
-                className="inline-block w-3 h-3 rounded-full mr-1"
-                style={{ backgroundColor: color, border: color === '#FFFFFF' ? '1px solid #666' : 'none' }}
-              />
-              {beverage.group}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                style={{
+                  backgroundColor: color,
+                  color: textColor,
+                  border: color === '#FFFFFF' ? '1px solid #ccc' : 'none',
+                }}
+              >
+                {beverage.group}
+              </span>
             </p>
             <p>
               <span className="font-medium">Origin:</span>{' '}
