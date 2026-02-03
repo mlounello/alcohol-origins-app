@@ -389,7 +389,7 @@ export default function EditBeveragePage() {
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   {allBeverages.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
+                    <SelectItem key={b.id} value={b.node_id}>
                       {b.name} ({b.type})
                     </SelectItem>
                   ))}
