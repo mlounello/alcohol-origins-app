@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Polyline, Tooltip } from 'react-leaflet';
+import { useMemo, useEffect } from 'react';
+import { Polyline, Tooltip, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet-polylinedecorator';
 import { Beverage } from '@/types/database';
 import { GROUP_COLORS } from '@/lib/constants';
 
@@ -14,6 +16,46 @@ interface LineData {
   parent: Beverage;
   child: Beverage;
   color: string;
+}
+
+// Component to add arrow decorators to a polyline
+function ArrowDecorator({
+  positions,
+  color
+}: {
+  positions: [number, number][];
+  color: string;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const polyline = L.polyline(positions);
+
+    const decorator = (L as any).polylineDecorator(polyline, {
+      patterns: [
+        {
+          offset: '50%',
+          repeat: 0,
+          symbol: (L as any).Symbol.arrowHead({
+            pixelSize: 12,
+            polygon: false,
+            pathOptions: {
+              stroke: true,
+              color: color,
+              weight: 2,
+              opacity: 0.8,
+            },
+          }),
+        },
+      ],
+    }).addTo(map);
+
+    return () => {
+      map.removeLayer(decorator);
+    };
+  }, [map, positions, color]);
+
+  return null;
 }
 
 export function FamilyTreeLines({ beverages, allBeverages }: FamilyTreeLinesProps) {
@@ -54,28 +96,29 @@ export function FamilyTreeLines({ beverages, allBeverages }: FamilyTreeLinesProp
         const midLng = (parent.longitude + child.longitude) / 2;
 
         return (
-          <Polyline
-            key={`${parent.id}-${child.id}`}
-            positions={positions}
-            pathOptions={{
-              color: color,
-              weight: 2,
-              opacity: 0.6,
-              dashArray: '5, 5',
-            }}
-          >
-            <Tooltip
-              position={[midLat, midLng]}
-              direction="center"
-              permanent={false}
+          <div key={`${parent.id}-${child.id}`}>
+            <Polyline
+              positions={positions}
+              pathOptions={{
+                color: color,
+                weight: 2,
+                opacity: 0.7,
+              }}
             >
-              <div className="text-xs">
-                <p className="font-medium">{parent.name}</p>
-                <p className="text-gray-500">↓ derived from</p>
-                <p className="font-medium">{child.name}</p>
-              </div>
-            </Tooltip>
-          </Polyline>
+              <Tooltip
+                position={[midLat, midLng]}
+                direction="center"
+                permanent={false}
+              >
+                <div className="text-xs">
+                  <p className="font-medium">{parent.name}</p>
+                  <p className="text-gray-500">↓ gave rise to</p>
+                  <p className="font-medium">{child.name}</p>
+                </div>
+              </Tooltip>
+            </Polyline>
+            <ArrowDecorator positions={positions} color={color} />
+          </div>
         );
       })}
     </>
