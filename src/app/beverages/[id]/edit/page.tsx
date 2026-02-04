@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip } from '@/components/ui/tooltip';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
@@ -63,7 +65,7 @@ export default function EditBeveragePage() {
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<BeverageFormData>({
     resolver: zodResolver(beverageSchema),
     defaultValues: {
@@ -84,6 +86,7 @@ export default function EditBeveragePage() {
   });
 
   const canEdit = profile && ['contributor', 'editor', 'moderator', 'admin'].includes(profile.role);
+  const canResubmit = profile?.role === 'contributor' && beverage?.created_by === profile.id;
 
   useEffect(() => {
     async function fetchData() {
@@ -134,7 +137,7 @@ export default function EditBeveragePage() {
     fetchData();
   }, [id, isNew, setValue]);
 
-  const onSubmit = async (data: BeverageFormData) => {
+  const onSubmit = async (data: BeverageFormData, resubmit = false) => {
     if (!canEdit) {
       toast.error('You do not have permission to edit beverages');
       return;
@@ -160,7 +163,24 @@ export default function EditBeveragePage() {
       }
 
       const savedBeverage = await response.json();
-      toast.success(isNew ? 'Beverage created!' : 'Beverage updated!');
+      if (isNew && savedBeverage.approval_status === 'pending') {
+        toast.success('Beverage submitted for approval!');
+      } else {
+        toast.success(isNew ? 'Beverage created!' : 'Beverage updated!');
+      }
+      if (resubmit && savedBeverage.approval_status === 'rejected') {
+        const resubmitResponse = await fetch(`/api/beverages/${savedBeverage.id}/resubmit`, {
+          method: 'POST',
+        });
+        if (!resubmitResponse.ok) {
+          const resubmitError = await resubmitResponse.json();
+          throw new Error(resubmitError.error || 'Failed to resubmit beverage');
+        }
+        const resubmitted = await resubmitResponse.json();
+        toast.success('Beverage resubmitted for approval');
+        router.push(`/beverages/${resubmitted.beverage.id}`);
+        return;
+      }
       router.push(`/beverages/${savedBeverage.id}`);
     } catch (err) {
       console.error('Error saving beverage:', err);
@@ -234,12 +254,33 @@ export default function EditBeveragePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{isNew ? 'Create New Beverage' : `Edit ${beverage?.name}`}</CardTitle>
-          <CardDescription>
-            {isNew
-              ? 'Add a new beverage to the database'
-              : 'Update the information for this beverage'}
-          </CardDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>{isNew ? 'Create New Beverage' : `Edit ${beverage?.name}`}</CardTitle>
+              <CardDescription>
+                {isNew
+                  ? 'Add a new beverage to the database'
+                  : 'Update the information for this beverage'}
+              </CardDescription>
+            </div>
+            {!isNew && beverage?.approval_status && (
+              <Badge
+                variant={
+                  beverage.approval_status === 'approved'
+                    ? 'secondary'
+                    : beverage.approval_status === 'pending'
+                      ? 'outline'
+                      : 'destructive'
+                }
+              >
+                {beverage.approval_status === 'approved'
+                  ? 'Approved'
+                  : beverage.approval_status === 'pending'
+                    ? 'Pending'
+                    : 'Rejected'}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -421,6 +462,13 @@ export default function EditBeveragePage() {
               />
             </div>
 
+            {beverage?.approval_status === 'rejected' && beverage.rejection_reason && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <p className="font-semibold mb-1">Rejection Feedback</p>
+                <p className="whitespace-pre-wrap">{beverage.rejection_reason}</p>
+              </div>
+            )}
+
             {/* Change Summary (only for edits) */}
             {!isNew && (
               <div className="space-y-2">
@@ -434,27 +482,59 @@ export default function EditBeveragePage() {
             )}
 
             {/* Submit */}
-            <div className="flex justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    {isNew ? 'Create' : 'Save Changes'}
-                  </>
+            <div className="flex items-center justify-between gap-4">
+              {canResubmit && beverage?.approval_status === 'rejected' && (
+                <p className="text-xs text-muted-foreground">
+                  Make a change to enable resubmission.
+                </p>
+              )}
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                >
+                  Cancel
+                </Button>
+                <Tooltip content={!isDirty && !saving ? 'Make a change to enable saving.' : undefined}>
+                  <Button
+                    type="button"
+                    onClick={handleSubmit((data) => onSubmit(data, false))}
+                    disabled={saving || !isDirty}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isNew ? 'Create' : 'Save Changes'}
+                      </>
+                    )}
+                  </Button>
+                </Tooltip>
+                {canResubmit && beverage?.approval_status === 'rejected' && (
+                  <Tooltip content={!isDirty && !saving ? 'Make a change to enable resubmission.' : undefined}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSubmit((data) => onSubmit(data, true))}
+                      disabled={saving || !isDirty}
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Resubmitting...
+                        </>
+                      ) : (
+                        'Save & Resubmit'
+                      )}
+                    </Button>
+                  </Tooltip>
                 )}
-              </Button>
+              </div>
             </div>
           </form>
         </CardContent>

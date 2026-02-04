@@ -409,7 +409,7 @@ export default function ImportPage() {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h3 className="font-medium mb-2">Expected CSV Format</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              Your CSV should have these columns (order doesn't matter):
+              Your CSV should have these columns (order doesn&apos;t matter):
             </p>
             <code className="text-xs bg-background p-2 rounded block overflow-x-auto">
               node_id, type, group, date, latitude, longitude, parent_id, description, citation, origin_region, origin_country

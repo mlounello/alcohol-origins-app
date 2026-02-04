@@ -1,12 +1,16 @@
 'use client';
 
 import { useGroups } from '@/providers/GroupsProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { getContrastTextColor } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Palette } from 'lucide-react';
+import { GroupsManager } from '@/components/groups/GroupsManager';
 
 export default function GroupsPage() {
+  const { profile } = useAuth();
   const { groups, isLoading } = useGroups();
+  const canManage = profile && ['moderator', 'admin'].includes(profile.role);
 
   if (isLoading) {
     return (
@@ -17,6 +21,10 @@ export default function GroupsPage() {
         </div>
       </div>
     );
+  }
+
+  if (canManage) {
+    return <GroupsManager />;
   }
 
   return (

@@ -8,35 +8,50 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
+  const supabase = await createClient();
 
   try {
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?id=eq.${id}&select=*`;
+    const { data: { user } } = await supabase.auth.getUser();
 
-    const response = await fetch(url, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: 'Failed to fetch beverage' },
-        { status: response.status }
-      );
+    let userRole: string | null = null;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, is_banned')
+        .eq('id', user.id)
+        .single();
+      if (profile?.is_banned) {
+        return NextResponse.json(
+          { error: 'Your account is banned' },
+          { status: 403 }
+        );
+      }
+      userRole = profile?.role ?? 'viewer';
     }
 
-    const beverages: Beverage[] = await response.json();
+    let query = supabase
+      .from('beverages')
+      .select('*')
+      .eq('id', id);
 
-    if (beverages.length === 0) {
+    if (!userRole || !['editor', 'moderator', 'admin'].includes(userRole)) {
+      if (user) {
+        query = query.or(`approval_status.eq.approved,created_by.eq.${user.id}`);
+      } else {
+        query = query.eq('approval_status', 'approved');
+      }
+    }
+
+    const { data: beverage, error } = await query.single();
+
+    if (error || !beverage) {
       return NextResponse.json(
         { error: 'Beverage not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(beverages[0]);
+    return NextResponse.json(beverage as Beverage);
   } catch (error) {
     console.error('Error fetching beverage:', error);
     return NextResponse.json(
@@ -63,39 +78,36 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
 
     // Get current beverage to check if it exists and to create revision
-    const currentUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?id=eq.${id}&select=*`;
-    const currentResponse = await fetch(currentUrl, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const { data: currentBeverage, error: currentError } = await supabase
+      .from('beverages')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    const currentBeverages = await currentResponse.json();
-    if (currentBeverages.length === 0) {
+    if (currentError || !currentBeverage) {
       return NextResponse.json(
         { error: 'Beverage not found' },
         { status: 404 }
       );
     }
 
-    const currentBeverage = currentBeverages[0];
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, is_banned')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
+
+    const userRole = profile?.role || 'viewer';
 
     // Check if locked (only editors/admins can update locked entries)
     if (currentBeverage.is_locked) {
-      // Get user profile to check role
-      const profileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=role`;
-      const profileResponse = await fetch(profileUrl, {
-        headers: {
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const profiles = await profileResponse.json();
-      const userRole = profiles[0]?.role || 'viewer';
-
       if (!['editor', 'moderator', 'admin'].includes(userRole)) {
         return NextResponse.json(
           { error: 'This beverage is locked and can only be edited by editors, moderators, or admins' },
@@ -118,6 +130,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       description: body.description || null,
       citation: body.citation || null,
       parent_id: body.parent_id || null,
+      approval_status: currentBeverage.approval_status,
+      approved_by: currentBeverage.approved_by,
+      approved_at: currentBeverage.approved_at,
+      rejected_by: currentBeverage.rejected_by,
+      rejected_at: currentBeverage.rejected_at,
+      rejection_reason: currentBeverage.rejection_reason,
       updated_by: user.id,
       updated_at: new Date().toISOString(),
     };
@@ -196,9 +214,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Get user profile to check role (editors, moderators, and admins can delete)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_banned')
       .eq('id', user.id)
       .single();
+
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
 
     const userRole = profile?.role || 'viewer';
 

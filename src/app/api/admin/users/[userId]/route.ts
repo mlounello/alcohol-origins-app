@@ -24,12 +24,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   // Check if user is admin or moderator
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_banned')
     .eq('id', user.id)
     .single();
 
   const isAdmin = currentProfile?.role === 'admin';
   const isModerator = currentProfile?.role === 'moderator';
+
+  if (currentProfile?.is_banned) {
+    return NextResponse.json(
+      { error: 'Your account is banned' },
+      { status: 403 }
+    );
+  }
 
   if (!isAdmin && !isModerator) {
     return NextResponse.json(
@@ -65,27 +72,55 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   try {
     const body = await request.json();
-    const { role } = body;
+    const { role, is_banned, banned_reason } = body;
 
-    // Validate role
-    if (!role || !VALID_ROLES.includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role' },
-        { status: 400 }
-      );
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+    if (role !== undefined) {
+      // Validate role
+      if (!VALID_ROLES.includes(role)) {
+        return NextResponse.json(
+          { error: 'Invalid role' },
+          { status: 400 }
+        );
+      }
+
+      // Moderators cannot assign admin or moderator roles
+      if (isModerator && !isAdmin && (role === 'admin' || role === 'moderator')) {
+        return NextResponse.json(
+          { error: 'Moderators cannot assign admin or moderator roles' },
+          { status: 403 }
+        );
+      }
+
+      updates.role = role;
     }
 
-    // Moderators cannot assign admin or moderator roles
-    if (isModerator && !isAdmin && (role === 'admin' || role === 'moderator')) {
+    if (is_banned !== undefined) {
+      if (typeof is_banned !== 'boolean') {
+        return NextResponse.json(
+          { error: 'Invalid ban flag' },
+          { status: 400 }
+        );
+      }
+
+      updates.is_banned = is_banned;
+      updates.banned_at = is_banned ? new Date().toISOString() : null;
+      updates.banned_reason = is_banned
+        ? (typeof banned_reason === 'string' ? banned_reason : null)
+        : null;
+    }
+
+    if (Object.keys(updates).length === 1) {
       return NextResponse.json(
-        { error: 'Moderators cannot assign admin or moderator roles' },
-        { status: 403 }
+        { error: 'No changes provided' },
+        { status: 400 }
       );
     }
 
     const { data: updatedProfile, error } = await supabase
       .from('profiles')
-      .update({ role, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', userId)
       .select()
       .single();

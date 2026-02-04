@@ -19,6 +19,9 @@ export interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   role: UserRole;
+  is_banned: boolean;
+  banned_at: string | null;
+  banned_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +46,13 @@ export interface Beverage {
   image_url: string | null;
   is_locked: boolean;
   current_revision_id: string | null;
+  approval_status: 'approved' | 'pending' | 'rejected';
+  approved_by: string | null;
+  approved_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  moderator_notes: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -63,7 +73,7 @@ export interface BeverageRevision {
 export interface ActivityLog {
   id: string;
   user_id: string | null;
-  action: 'create' | 'edit' | 'revert' | 'delete';
+  action: 'create' | 'edit' | 'revert' | 'delete' | 'approve' | 'reject';
   beverage_id: string | null;
   beverage_name: string | null;
   revision_id: string | null;

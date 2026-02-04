@@ -55,6 +55,9 @@ export async function GET(request: NextRequest) {
       filters.push(`node_id=eq.${encodeURIComponent(nodeId)}`);
     }
 
+    // Only return approved beverages for public queries
+    filters.push('approval_status=eq.approved');
+
     // Append filters to URL
     if (filters.length > 0) {
       url += '&' + filters.join('&');
@@ -154,6 +157,21 @@ export async function POST(request: NextRequest) {
       nodeId = `${nodeId}-${Date.now().toString(36)}`;
     }
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, is_banned')
+      .eq('id', user.id)
+      .single();
+
+    const userRole = profile?.role || 'viewer';
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
+    const shouldAutoApprove = ['editor', 'moderator', 'admin'].includes(userRole);
+
     const beverageData = {
       node_id: nodeId,
       name: body.name,
@@ -168,6 +186,9 @@ export async function POST(request: NextRequest) {
       description: body.description || null,
       citation: body.citation || null,
       parent_id: body.parent_id || null,
+      approval_status: shouldAutoApprove ? 'approved' : 'pending',
+      approved_by: shouldAutoApprove ? user.id : null,
+      approved_at: shouldAutoApprove ? new Date().toISOString() : null,
       created_by: user.id,
       updated_by: user.id,
     };
@@ -208,10 +229,13 @@ export async function POST(request: NextRequest) {
       .from('activity_log')
       .insert({
         user_id: user.id,
-        action: 'create',
+        action: shouldAutoApprove ? 'approve' : 'create',
         beverage_id: newBeverage.id,
         beverage_name: newBeverage.name,
-        details: { node_id: nodeId },
+        details: {
+          node_id: nodeId,
+          approval_status: newBeverage.approval_status,
+        },
       });
 
     return NextResponse.json(newBeverage, { status: 201 });

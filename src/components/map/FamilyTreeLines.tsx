@@ -18,6 +18,26 @@ interface LineData {
   color: string;
 }
 
+interface PolylineDecoratorApi {
+  polylineDecorator: (
+    polyline: L.Polyline,
+    options: {
+      patterns: Array<{
+        offset: string;
+        repeat: number;
+        symbol: unknown;
+      }>;
+    }
+  ) => L.Layer;
+  Symbol: {
+    arrowHead: (options: {
+      pixelSize: number;
+      polygon: boolean;
+      pathOptions: L.PathOptions;
+    }) => unknown;
+  };
+}
+
 // Component to add arrow decorators to a polyline
 function ArrowDecorator({
   positions,
@@ -31,12 +51,13 @@ function ArrowDecorator({
   useEffect(() => {
     const polyline = L.polyline(positions);
 
-    const decorator = (L as any).polylineDecorator(polyline, {
+    const decoratorApi = L as unknown as PolylineDecoratorApi;
+    const decorator = decoratorApi.polylineDecorator(polyline, {
       patterns: [
         {
           offset: '50%',
           repeat: 0,
-          symbol: (L as any).Symbol.arrowHead({
+          symbol: decoratorApi.Symbol.arrowHead({
             pixelSize: 12,
             polygon: false,
             pathOptions: {

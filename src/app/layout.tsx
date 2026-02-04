@@ -5,6 +5,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { SettingsProvider } from '@/providers/SettingsProvider';
 import { GroupsProvider } from '@/providers/GroupsProvider';
 import { Header } from '@/components/layout/Header';
+import { BannedGate } from '@/components/layout/BannedGate';
 import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
@@ -45,7 +46,9 @@ export default function RootLayout({
             <SettingsProvider>
               <GroupsProvider>
                 <Header />
-                <main className="flex-1">{children}</main>
+                <main className="flex-1">
+                  <BannedGate>{children}</BannedGate>
+                </main>
                 <Toaster />
               </GroupsProvider>
             </SettingsProvider>

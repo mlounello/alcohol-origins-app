@@ -44,28 +44,22 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Load settings from localStorage on mount
-  useEffect(() => {
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    if (typeof window === 'undefined') return DEFAULT_SETTINGS;
     const savedSettings = localStorage.getItem('appSettings');
-    if (savedSettings) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
-      } catch (e) {
-        console.error('Failed to parse saved settings');
-      }
+    if (!savedSettings) return DEFAULT_SETTINGS;
+    try {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) };
+    } catch {
+      console.error('Failed to parse saved settings');
+      return DEFAULT_SETTINGS;
     }
-    setIsLoaded(true);
-  }, []);
+  });
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('appSettings', JSON.stringify(settings));
-    }
-  }, [settings, isLoaded]);
+    localStorage.setItem('appSettings', JSON.stringify(settings));
+  }, [settings]);
 
   const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));

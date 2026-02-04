@@ -22,9 +22,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Check role (moderator or admin)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_banned')
       .eq('id', user.id)
       .single();
+
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
 
     const userRole = profile?.role || 'viewer';
     if (!['moderator', 'admin'].includes(userRole)) {
@@ -115,9 +122,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Only admins can delete groups
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_banned')
       .eq('id', user.id)
       .single();
+
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
 
     if (profile?.role !== 'admin') {
       return NextResponse.json(

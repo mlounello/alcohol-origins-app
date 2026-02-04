@@ -24,9 +24,13 @@ import {
   Loader2,
   Trash2,
   RotateCcw,
+  Send,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -53,6 +57,13 @@ export default function BeverageDetailPage() {
   const [revertOpen, setRevertOpen] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState<BeverageRevision | null>(null);
+  const [resubmitting, setResubmitting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [approvedByProfile, setApprovedByProfile] = useState<Pick<Profile, 'id' | 'display_name' | 'email'> | null>(null);
+  const [rejectedByProfile, setRejectedByProfile] = useState<Pick<Profile, 'id' | 'display_name' | 'email'> | null>(null);
 
   const id = params.id as string;
 
@@ -117,6 +128,8 @@ export default function BeverageDetailPage() {
   const canLock = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
   const canDelete = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
   const canRevert = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
+  const canResubmit = profile && profile.role === 'contributor' && beverage?.created_by === profile.id;
+  const canApprove = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
 
   const handleToggleLock = async () => {
     if (!beverage || !canLock) return;
@@ -200,6 +213,116 @@ export default function BeverageDetailPage() {
     }
   };
 
+  const handleResubmit = async () => {
+    if (!beverage || !canResubmit) return;
+
+    setResubmitting(true);
+    try {
+      const response = await fetch(`/api/beverages/${id}/resubmit`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to resubmit beverage');
+      }
+
+      const data = await response.json();
+      setBeverage(data.beverage);
+      toast.success('Beverage resubmitted for approval');
+      await fetchBeverage();
+    } catch (err) {
+      console.error('Error resubmitting beverage:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to resubmit beverage');
+    } finally {
+      setResubmitting(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!beverage || !canApprove) return;
+
+    setApproving(true);
+    try {
+      const response = await fetch(`/api/beverages/${id}/approve`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to approve beverage');
+      }
+
+      const data = await response.json();
+      setBeverage(data.beverage);
+      toast.success('Beverage approved');
+      await fetchBeverage();
+    } catch (err) {
+      console.error('Error approving beverage:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to approve beverage');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!beverage || !canApprove) return;
+
+    setRejecting(true);
+    try {
+      const response = await fetch(`/api/beverages/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejection_reason: rejectionReason }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reject beverage');
+      }
+
+      const data = await response.json();
+      setBeverage(data.beverage);
+      toast.success('Beverage rejected');
+      await fetchBeverage();
+    } catch (err) {
+      console.error('Error rejecting beverage:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to reject beverage');
+    } finally {
+      setRejecting(false);
+      setRejectOpen(false);
+      setRejectionReason('');
+    }
+  };
+
+  useEffect(() => {
+    async function fetchModerationProfiles() {
+      if (!beverage) return;
+
+      if (beverage.approved_by) {
+        const response = await fetch(`/api/profiles/${beverage.approved_by}`);
+        if (response.ok) {
+          const data = await response.json();
+          setApprovedByProfile(data);
+        }
+      } else {
+        setApprovedByProfile(null);
+      }
+
+      if (beverage.rejected_by) {
+        const response = await fetch(`/api/profiles/${beverage.rejected_by}`);
+        if (response.ok) {
+          const data = await response.json();
+          setRejectedByProfile(data);
+        }
+      } else {
+        setRejectedByProfile(null);
+      }
+    }
+
+    fetchModerationProfiles();
+  }, [beverage]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -250,6 +373,16 @@ export default function BeverageDetailPage() {
                 <Lock className="h-3 w-3" /> Locked
               </Badge>
             )}
+            {beverage.approval_status === 'pending' && (
+              <Badge variant="outline" className="gap-1">
+                Pending Approval
+              </Badge>
+            )}
+            {beverage.approval_status === 'rejected' && (
+              <Badge variant="destructive" className="gap-1">
+                Rejected
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4 text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -288,11 +421,48 @@ export default function BeverageDetailPage() {
               {beverage.is_locked ? 'Unlock' : 'Lock'}
             </Button>
           )}
+          {canApprove && beverage.approval_status === 'pending' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleApprove}
+                disabled={approving}
+              >
+                {approving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                )}
+                Approve
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRejectOpen(true)}
+                disabled={approving || rejecting}
+                className="text-red-600 hover:text-red-700"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject
+              </Button>
+            </>
+          )}
           {canEdit && (
             <Button asChild>
               <Link href={`/beverages/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </Link>
+            </Button>
+          )}
+          {canResubmit && beverage.approval_status === 'rejected' && (
+            <Button onClick={handleResubmit} disabled={resubmitting}>
+              {resubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Resubmit
             </Button>
           )}
           {canDelete && (
@@ -314,9 +484,62 @@ export default function BeverageDetailPage() {
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        {/* Details Tab */}
-        <TabsContent value="details" className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
+      {/* Details Tab */}
+      <TabsContent value="details" className="space-y-6">
+        {(beverage.approval_status !== 'approved' ||
+          beverage.approved_at ||
+          beverage.rejected_at) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Moderation</CardTitle>
+              <CardDescription>Approval and review status</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Status:</span>{' '}
+                {beverage.approval_status === 'approved'
+                  ? 'Approved'
+                  : beverage.approval_status === 'pending'
+                    ? 'Pending'
+                    : 'Rejected'}
+              </p>
+              {beverage.approved_at && (
+                <p>
+                  <span className="text-muted-foreground">Approved:</span>{' '}
+                  {approvedByProfile?.display_name || approvedByProfile?.email || beverage.approved_by}{' '}
+                  on {new Date(beverage.approved_at).toLocaleString()}
+                </p>
+              )}
+              {beverage.rejected_at && (
+                <p>
+                  <span className="text-muted-foreground">Rejected:</span>{' '}
+                  {rejectedByProfile?.display_name || rejectedByProfile?.email || beverage.rejected_by}{' '}
+                  on {new Date(beverage.rejected_at).toLocaleString()}
+                </p>
+              )}
+              {canApprove && beverage.moderator_notes && (
+                <p>
+                  <span className="text-muted-foreground">Moderator notes:</span>{' '}
+                  {beverage.moderator_notes}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+        {beverage.approval_status === 'rejected' && beverage.rejection_reason && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Rejection Feedback</CardTitle>
+              <CardDescription>
+                This submission was rejected. You can edit and resubmit with the requested changes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm">{beverage.rejection_reason}</p>
+            </CardContent>
+          </Card>
+        )}
+        <div className="grid md:grid-cols-2 gap-6">
             {/* Origin Info */}
             <Card>
               <CardHeader>
@@ -590,6 +813,37 @@ export default function BeverageDetailPage() {
               </>
             ) : (
               'Revert'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reject Beverage</DialogTitle>
+          <DialogDescription>
+            Provide feedback so the submitter can revise and resubmit.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={rejectionReason}
+          onChange={(event) => setRejectionReason(event.target.value)}
+          placeholder="Optional feedback (missing citation, incorrect region, etc.)"
+          rows={4}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setRejectOpen(false)} disabled={rejecting}>
+            Cancel
+          </Button>
+          <Button onClick={handleReject} disabled={rejecting}>
+            {rejecting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Rejecting...
+              </>
+            ) : (
+              'Reject'
             )}
           </Button>
         </DialogFooter>

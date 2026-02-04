@@ -5,7 +5,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Users, Database, Settings, Palette } from 'lucide-react';
+import { Upload, Users, Database, Settings, Palette, CheckCircle2, Trash2 } from 'lucide-react';
 
 export default function AdminPage() {
   const { profile } = useAuth();
@@ -87,6 +87,42 @@ export default function AdminPage() {
           <CardContent>
             <Button asChild variant="outline">
               <Link href="/admin/groups">Manage Groups</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Approval Queue - Moderator and Admin */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" />
+              Approval Queue
+            </CardTitle>
+            <CardDescription>
+              Review and approve contributor submissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/admin/approvals">Review Queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Stale Submissions - Moderator and Admin */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              Stale Submissions
+            </CardTitle>
+            <CardDescription>
+              Review and delete pending/rejected submissions older than 30 days
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/admin/stale">View Stale</Link>
             </Button>
           </CardContent>
         </Card>

@@ -48,6 +48,21 @@ interface BeverageDetailSheetProps {
   allBeverages?: Beverage[];
 }
 
+type BeverageSheetFormData = {
+  name: string;
+  type: string;
+  group: BeverageGroup;
+  latitude: number;
+  longitude: number;
+  origin_region: string;
+  origin_country: string;
+  date_year: number | null;
+  date_text: string;
+  description: string;
+  citation: string;
+  parent_id: string | null;
+};
+
 export function BeverageDetailSheet({
   beverage,
   open,
@@ -70,7 +85,7 @@ export function BeverageDetailSheet({
     watch,
     reset,
     formState: { errors },
-  } = useForm({
+  } = useForm<BeverageSheetFormData>({
     defaultValues: {
       name: '',
       type: '',
@@ -119,7 +134,7 @@ export function BeverageDetailSheet({
     }
   }, [beverage, allBeverages, reset]);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: BeverageSheetFormData) => {
     if (!beverage || !canEdit) return;
 
     setSaving(true);

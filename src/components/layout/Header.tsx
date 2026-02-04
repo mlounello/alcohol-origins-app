@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -23,18 +24,51 @@ const navigation = [
   { name: 'Recent Changes', href: '/recent-changes' },
 ];
 
-const adminNavigation = [
-  { name: 'Admin', href: '/admin' },
+const adminNavigation = [{ name: 'Admin', href: '/admin' }];
+
+const moderationNavigation = [
+  { name: 'Approvals', href: '/admin/approvals' },
 ];
 
 export function Header() {
   const pathname = usePathname();
   const { user, profile, isLoading, signOut } = useAuth();
-  const { canManageUsers } = usePermissions();
+  const { canManageUsers, canApprove, isBanned } = usePermissions();
+  const [pendingCount, setPendingCount] = useState(0);
 
-  const allNavigation = canManageUsers
-    ? [...navigation, ...adminNavigation]
-    : navigation;
+  useEffect(() => {
+    async function fetchPendingCount() {
+      try {
+        const response = await fetch('/api/beverages/pending/count');
+        if (!response.ok) return;
+        const data = await response.json();
+        setPendingCount(typeof data.count === 'number' ? data.count : 0);
+      } catch (err) {
+        setPendingCount(0);
+      }
+    }
+
+    if (!canApprove) return;
+
+    fetchPendingCount();
+
+    const handleUpdate = () => fetchPendingCount();
+    window.addEventListener('approvals-updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('approvals-updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
+  }, [canApprove]);
+
+  const allNavigation = isBanned
+    ? navigation.filter((item) => item.href === '/map')
+    : [
+        ...navigation,
+        ...(canApprove ? moderationNavigation : []),
+        ...(canManageUsers ? adminNavigation : []),
+      ];
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
@@ -97,7 +131,14 @@ export function Header() {
                       : 'text-white/80 hover:bg-white/10 hover:text-white'
                   )}
                 >
-                  {item.name}
+                  <span className="inline-flex items-center gap-2">
+                    {item.name}
+                    {item.href === '/admin/approvals' && pendingCount > 0 && (
+                      <span className="inline-flex items-center justify-center rounded-full bg-brand-gold px-2 py-0.5 text-[10px] font-semibold text-brand-green-dark">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               ))}
             </nav>
@@ -136,7 +177,14 @@ export function Header() {
                   : 'text-white/80 hover:bg-white/10 hover:text-white'
               )}
             >
-              {item.name}
+              <span className="inline-flex items-center gap-2">
+                {item.name}
+                {item.href === '/admin/approvals' && pendingCount > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-brand-gold px-2 py-0.5 text-[10px] font-semibold text-brand-green-dark">
+                    {pendingCount}
+                  </span>
+                )}
+              </span>
             </Link>
           ))}
         </nav>
@@ -172,15 +220,28 @@ export function Header() {
                         {profile.role}
                       </p>
                     )}
+                    {isBanned && (
+                      <p className="text-xs text-brand-red font-semibold">Banned</p>
+                    )}
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => window.location.href = '/beverages/new'}
-                  className="cursor-pointer"
-                >
-                  Add Beverage
-                </DropdownMenuItem>
+                {!isBanned && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => window.location.href = '/beverages/new/edit'}
+                      className="cursor-pointer"
+                    >
+                      Add Beverage
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => window.location.href = '/me/submissions'}
+                      className="cursor-pointer"
+                    >
+                      My Submissions
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer text-brand-red focus:text-brand-red"

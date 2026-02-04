@@ -68,9 +68,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Check role (editor, moderator, admin)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_banned')
       .eq('id', user.id)
       .single();
+
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
 
     const userRole = profile?.role || 'viewer';
     if (!['editor', 'moderator', 'admin'].includes(userRole)) {

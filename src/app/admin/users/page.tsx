@@ -24,6 +24,15 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import {
   Users,
   Shield,
   Loader2,
@@ -60,6 +69,10 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [banOpen, setBanOpen] = useState(false);
+  const [banReason, setBanReason] = useState('');
+  const [banTarget, setBanTarget] = useState<Profile | null>(null);
+  const [banLoading, setBanLoading] = useState(false);
 
   const isAdmin = currentUserProfile?.role === 'admin';
   const isModerator = currentUserProfile?.role === 'moderator';
@@ -121,13 +134,54 @@ export default function UsersPage() {
     }
   };
 
+  const handleBanToggle = async (target: Profile, ban: boolean) => {
+    if (target.id === currentUserProfile?.id) {
+      setStatus({ type: 'error', message: "You cannot ban yourself" });
+      return;
+    }
+
+    setBanLoading(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch(`/api/admin/users/${target.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_banned: ban,
+          banned_reason: ban ? banReason : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update ban status');
+      }
+
+      const updatedUser = await response.json();
+      setUsers(prev => prev.map(u => u.id === target.id ? updatedUser : u));
+      setStatus({
+        type: 'success',
+        message: ban ? 'User banned' : 'User unbanned',
+      });
+    } catch (err) {
+      setStatus({ type: 'error', message: err instanceof Error ? err.message : 'Failed to update ban status' });
+    } finally {
+      setBanLoading(false);
+      setBanOpen(false);
+      setBanReason('');
+      setBanTarget(null);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
       user.email.toLowerCase().includes(query) ||
       user.display_name?.toLowerCase().includes(query) ||
-      user.role.toLowerCase().includes(query)
+      user.role.toLowerCase().includes(query) ||
+      (user.is_banned ? 'banned' : '').includes(query)
     );
   });
 
@@ -242,6 +296,7 @@ export default function UsersPage() {
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -249,13 +304,13 @@ export default function UsersPage() {
             <TableBody>
               {filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {searchQuery ? 'No users match your search' : 'No users found'}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
+                <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -281,6 +336,13 @@ export default function UsersPage() {
                         {user.role}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {user.is_banned ? (
+                        <Badge variant="destructive">Banned</Badge>
+                      ) : (
+                        <Badge variant="secondary">Active</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {new Date(user.created_at).toLocaleDateString()}
                     </TableCell>
@@ -290,29 +352,42 @@ export default function UsersPage() {
                           {user.id === currentUserProfile?.id ? '(you)' : 'Protected'}
                         </span>
                       ) : (
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}
-                          disabled={updatingUserId === user.id}
-                        >
-                          <SelectTrigger className="w-32">
-                            {updatingUserId === user.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <SelectValue />
-                            )}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assignableRoles.map((role) => (
-                              <SelectItem key={role} value={role}>
-                                <div className="flex items-center gap-2">
-                                  <Shield className="h-3 w-3" />
-                                  {role}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center justify-end gap-2">
+                          <Select
+                            value={user.role}
+                            onValueChange={(value) => handleRoleChange(user.id, value as UserRole)}
+                            disabled={updatingUserId === user.id}
+                          >
+                            <SelectTrigger className="w-32">
+                              {updatingUserId === user.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <SelectValue />
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              {assignableRoles.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-3 w-3" />
+                                    {role}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant={user.is_banned ? 'outline' : 'destructive'}
+                            size="sm"
+                            onClick={() => {
+                              setBanTarget(user);
+                              setBanReason(user.banned_reason || '');
+                              setBanOpen(true);
+                            }}
+                          >
+                            {user.is_banned ? 'Unban' : 'Ban'}
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -322,6 +397,48 @@ export default function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={banOpen} onOpenChange={setBanOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{banTarget?.is_banned ? 'Unban User' : 'Ban User'}</DialogTitle>
+            <DialogDescription>
+              {banTarget?.is_banned
+                ? 'Restores access to all features.'
+                : 'Banned users can only access the map.'}
+            </DialogDescription>
+          </DialogHeader>
+          {!banTarget?.is_banned && (
+            <Textarea
+              value={banReason}
+              onChange={(event) => setBanReason(event.target.value)}
+              placeholder="Reason for ban (optional)"
+              rows={3}
+            />
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBanOpen(false)} disabled={banLoading}>
+              Cancel
+            </Button>
+            <Button
+              variant={banTarget?.is_banned ? 'outline' : 'destructive'}
+              onClick={() => banTarget && handleBanToggle(banTarget, !banTarget.is_banned)}
+              disabled={banLoading}
+            >
+              {banLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : banTarget?.is_banned ? (
+                'Unban'
+              ) : (
+                'Ban'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="mt-6">
         <CardHeader>

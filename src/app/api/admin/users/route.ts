@@ -17,9 +17,16 @@ export async function GET(request: NextRequest) {
   // Check if user is admin or moderator
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_banned')
     .eq('id', user.id)
     .single();
+
+  if (currentProfile?.is_banned) {
+    return NextResponse.json(
+      { error: 'Your account is banned' },
+      { status: 403 }
+    );
+  }
 
   if (currentProfile?.role !== 'admin' && currentProfile?.role !== 'moderator') {
     return NextResponse.json(

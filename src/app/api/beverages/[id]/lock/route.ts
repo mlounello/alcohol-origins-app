@@ -22,9 +22,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Get user profile to check role
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_banned')
       .eq('id', user.id)
       .single();
+
+    if (profile?.is_banned) {
+      return NextResponse.json(
+        { error: 'Your account is banned' },
+        { status: 403 }
+      );
+    }
 
     const userRole = profile?.role || 'viewer';
 

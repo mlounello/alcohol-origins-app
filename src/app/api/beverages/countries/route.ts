@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     // Get distinct countries from beverages
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?select=origin_country&origin_country=not.is.null&order=origin_country.asc`;
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?select=origin_country&origin_country=not.is.null&approval_status=eq.approved&order=origin_country.asc`;
 
     const response = await fetch(url, {
       headers: {

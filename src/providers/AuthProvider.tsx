@@ -179,19 +179,22 @@ export function usePermissions() {
   const { profile } = useAuth();
 
   const role: UserRole = profile?.role ?? 'viewer';
+  const isBanned = profile?.is_banned ?? false;
 
   return {
     role,
     canView: true,
-    canCreate: hasRoleOrHigher(role, 'contributor'),
-    canEdit: hasRoleOrHigher(role, 'contributor'),
-    canRevert: hasRoleOrHigher(role, 'editor'),
-    canLock: hasRoleOrHigher(role, 'editor'),
-    canManageUsers: hasRoleOrHigher(role, 'moderator'),
-    canManageGroups: hasRoleOrHigher(role, 'moderator'),
-    canDelete: role === 'admin',
-    canImport: role === 'admin',
-    canManageSettings: role === 'admin',
+    isBanned,
+    canCreate: !isBanned && hasRoleOrHigher(role, 'contributor'),
+    canEdit: !isBanned && hasRoleOrHigher(role, 'contributor'),
+    canRevert: !isBanned && hasRoleOrHigher(role, 'editor'),
+    canLock: !isBanned && hasRoleOrHigher(role, 'editor'),
+    canApprove: !isBanned && hasRoleOrHigher(role, 'editor'),
+    canManageUsers: !isBanned && hasRoleOrHigher(role, 'moderator'),
+    canManageGroups: !isBanned && hasRoleOrHigher(role, 'moderator'),
+    canDelete: !isBanned && hasRoleOrHigher(role, 'editor'),
+    canImport: !isBanned && role === 'admin',
+    canManageSettings: !isBanned && role === 'admin',
     hasRoleOrHigher: (minimumRole: UserRole) => hasRoleOrHigher(role, minimumRole),
   };
 }
