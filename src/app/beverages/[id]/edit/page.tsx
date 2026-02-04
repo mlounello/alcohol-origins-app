@@ -283,7 +283,7 @@ export default function EditBeveragePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit((data) => onSubmit(data, false))} className="space-y-6">
             {/* Basic Info */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
