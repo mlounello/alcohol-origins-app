@@ -7,6 +7,7 @@ import { GroupsProvider } from '@/providers/GroupsProvider';
 import { Header } from '@/components/layout/Header';
 import { BannedGate } from '@/components/layout/BannedGate';
 import { Toaster } from '@/components/ui/sonner';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Alcohol Origins - Interactive Map of Beverage History',
@@ -49,6 +50,17 @@ export default function RootLayout({
                 <main className="flex-1">
                   <BannedGate>{children}</BannedGate>
                 </main>
+                <footer className="border-t border-border/40 py-4">
+                  <div className="container flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                    <Link href="/privacy" className="hover:text-foreground transition-colors">
+                      Privacy
+                    </Link>
+                    <span aria-hidden="true">|</span>
+                    <Link href="/terms-of-service" className="hover:text-foreground transition-colors">
+                      Terms
+                    </Link>
+                  </div>
+                </footer>
                 <Toaster />
               </GroupsProvider>
             </SettingsProvider>

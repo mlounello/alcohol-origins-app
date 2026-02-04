@@ -1,7 +1,12 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function HomePage() {
+  const { user } = useAuth();
+
   return (
     <div className="flex flex-col">
       {/* Hero section - will be replaced with map */}
@@ -22,13 +27,16 @@ export default function HomePage() {
               <Button asChild size="lg">
                 <Link href="/beverages">Browse Beverages</Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/register">Join & Contribute</Link>
-              </Button>
+              {user ? (
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/map">Go To Map</Link>
+                </Button>
+              ) : (
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/register">Join & Contribute</Link>
+                </Button>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground">
-              Interactive map coming soon. Connect Supabase to enable full functionality.
-            </p>
           </div>
         </div>
       </div>
