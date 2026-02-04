@@ -52,10 +52,11 @@ export interface Beverage {
 export interface BeverageRevision {
   id: string;
   beverage_id: string;
-  user_id: string;
+  edited_by: string;
   revision_number: number;
   data: Partial<Beverage>;
-  change_summary: string | null;
+  edit_summary: string | null;
+  changed_fields: string[] | null;
   created_at: string;
 }
 

@@ -97,6 +97,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Generate a URL-friendly node_id from the beverage name
+function generateNodeId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
@@ -112,21 +121,38 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    const required = ['name', 'type', 'group', 'latitude', 'longitude'];
-    for (const field of required) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
+    // Validate required fields (use explicit checks to allow 0 for lat/lng)
+    if (!body.name) {
+      return NextResponse.json({ error: 'Missing required field: name' }, { status: 400 });
+    }
+    if (!body.type) {
+      return NextResponse.json({ error: 'Missing required field: type' }, { status: 400 });
+    }
+    if (!body.group) {
+      return NextResponse.json({ error: 'Missing required field: group' }, { status: 400 });
+    }
+    if (body.latitude === undefined || body.latitude === null || body.latitude === '') {
+      return NextResponse.json({ error: 'Missing required field: latitude' }, { status: 400 });
+    }
+    if (body.longitude === undefined || body.longitude === null || body.longitude === '') {
+      return NextResponse.json({ error: 'Missing required field: longitude' }, { status: 400 });
     }
 
-    // Create beverage using REST API
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages`;
+    // Generate node_id from name, ensure uniqueness
+    let nodeId = generateNodeId(body.name);
+
+    const { data: existing } = await supabase
+      .from('beverages')
+      .select('node_id')
+      .eq('node_id', nodeId)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      nodeId = `${nodeId}-${Date.now().toString(36)}`;
+    }
 
     const beverageData = {
+      node_id: nodeId,
       name: body.name,
       type: body.type,
       group: body.group,
@@ -135,7 +161,7 @@ export async function POST(request: NextRequest) {
       origin_region: body.origin_region || null,
       origin_country: body.origin_country || null,
       date_year: body.date_year || null,
-      date_text: body.date_text || null,
+      date_text: body.date_text || body.name, // date_text is NOT NULL in DB, fallback to name
       description: body.description || null,
       citation: body.citation || null,
       parent_id: body.parent_id || null,
@@ -143,45 +169,47 @@ export async function POST(request: NextRequest) {
       updated_by: user.id,
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
-      },
-      body: JSON.stringify(beverageData),
-    });
+    // Use Supabase JS client which carries the user's auth session for RLS
+    const { data: newBeverage, error: insertError } = await supabase
+      .from('beverages')
+      .insert(beverageData)
+      .select()
+      .single();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Supabase create error:', errorText);
+    if (insertError) {
+      console.error('Supabase create error:', insertError);
       return NextResponse.json(
-        { error: 'Failed to create beverage' },
-        { status: response.status }
+        { error: insertError.message || 'Failed to create beverage' },
+        { status: 500 }
       );
     }
 
-    const [newBeverage] = await response.json();
-
-    // Create initial revision
-    const revisionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverage_revisions`;
-    await fetch(revisionUrl, {
-      method: 'POST',
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    // Create initial revision (column names match DB schema: edited_by, edit_summary)
+    const { error: revisionError } = await supabase
+      .from('beverage_revisions')
+      .insert({
         beverage_id: newBeverage.id,
-        user_id: user.id,
+        edited_by: user.id,
         revision_number: 1,
         data: beverageData,
-        change_summary: 'Initial creation',
-      }),
-    });
+        edit_summary: 'Initial creation',
+      });
+
+    if (revisionError) {
+      console.error('Revision creation error:', revisionError);
+      // Don't fail the whole request for a revision error
+    }
+
+    // Log activity
+    await supabase
+      .from('activity_log')
+      .insert({
+        user_id: user.id,
+        action: 'create',
+        beverage_id: newBeverage.id,
+        beverage_name: newBeverage.name,
+        details: { node_id: nodeId },
+      });
 
     return NextResponse.json(newBeverage, { status: 201 });
   } catch (error) {

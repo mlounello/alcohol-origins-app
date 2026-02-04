@@ -426,7 +426,7 @@ export default function BeverageDetailPage() {
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">
-                          {revision.change_summary || 'Updated'}
+                          {revision.edit_summary || 'Updated'}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {new Date(revision.created_at).toLocaleString()}

@@ -114,7 +114,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       origin_region: body.origin_region || null,
       origin_country: body.origin_country || null,
       date_year: body.date_year || null,
-      date_text: body.date_text || null,
+      date_text: body.date_text || currentBeverage.date_text || currentBeverage.name, // date_text is NOT NULL
       description: body.description || null,
       citation: body.citation || null,
       parent_id: body.parent_id || null,
@@ -147,15 +147,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const nextRevisionNumber = (revisions?.[0]?.revision_number || 0) + 1;
 
-    // Create revision
+    // Create revision (column names match DB schema: edited_by, edit_summary)
     await supabase
       .from('beverage_revisions')
       .insert({
         beverage_id: id,
-        user_id: user.id,
+        edited_by: user.id,
         revision_number: nextRevisionNumber,
         data: updateData,
-        change_summary: body.change_summary || 'Updated beverage information',
+        edit_summary: body.change_summary || 'Updated beverage information',
+      });
+
+    // Log activity
+    await supabase
+      .from('activity_log')
+      .insert({
+        user_id: user.id,
+        action: 'edit',
+        beverage_id: id,
+        beverage_name: updatedBeverage.name,
+        details: { change_summary: body.change_summary || 'Updated beverage information' },
       });
 
     return NextResponse.json(updatedBeverage);
@@ -183,16 +194,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   try {
     // Get user profile to check role (only admins can delete)
-    const profileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=role`;
-    const profileResponse = await fetch(profileUrl, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    const profiles = await profileResponse.json();
-    const userRole = profiles[0]?.role || 'viewer';
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const userRole = profile?.role || 'viewer';
 
     if (userRole !== 'admin') {
       return NextResponse.json(
@@ -201,23 +209,36 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Delete beverage (revisions will be cascade deleted due to FK constraint)
-    const deleteUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?id=eq.${id}`;
-    const deleteResponse = await fetch(deleteUrl, {
-      method: 'DELETE',
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Get beverage name before deleting (for activity log)
+    const { data: beverage } = await supabase
+      .from('beverages')
+      .select('name')
+      .eq('id', id)
+      .single();
 
-    if (!deleteResponse.ok) {
+    // Delete beverage using Supabase client (carries user's auth session for RLS)
+    const { error: deleteError } = await supabase
+      .from('beverages')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error('Supabase delete error:', deleteError);
       return NextResponse.json(
-        { error: 'Failed to delete beverage' },
-        { status: deleteResponse.status }
+        { error: deleteError.message || 'Failed to delete beverage' },
+        { status: 500 }
       );
     }
+
+    // Log activity
+    await supabase
+      .from('activity_log')
+      .insert({
+        user_id: user.id,
+        action: 'delete',
+        beverage_name: beverage?.name || 'Unknown',
+        details: { deleted_id: id },
+      });
 
     return NextResponse.json({ success: true });
   } catch (error) {
