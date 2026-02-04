@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Beverage, BeverageRevision, Profile } from '@/types/database';
@@ -22,9 +22,19 @@ import {
   Unlock,
   ExternalLink,
   Loader2,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function BeverageDetailPage() {
   const params = useParams();
@@ -38,64 +48,75 @@ export default function BeverageDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lockLoading, setLockLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [revertOpen, setRevertOpen] = useState(false);
+  const [reverting, setReverting] = useState(false);
+  const [selectedRevision, setSelectedRevision] = useState<BeverageRevision | null>(null);
 
   const id = params.id as string;
 
-  useEffect(() => {
-    async function fetchBeverage() {
-      try {
-        // Fetch beverage
-        const response = await fetch(`/api/beverages/${id}`);
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError('Beverage not found');
-          } else {
-            throw new Error('Failed to fetch beverage');
-          }
-          return;
+  const fetchBeverage = useCallback(async () => {
+    try {
+      // Fetch beverage
+      const response = await fetch(`/api/beverages/${id}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError('Beverage not found');
+        } else {
+          throw new Error('Failed to fetch beverage');
         }
-        const data = await response.json();
-        setBeverage(data);
-
-        // Fetch parent if exists (parent_id is a node_id)
-        if (data.parent_id) {
-          const parentResponse = await fetch(`/api/beverages?node_id=${encodeURIComponent(data.parent_id)}`);
-          if (parentResponse.ok) {
-            const parentData = await parentResponse.json();
-            if (parentData.length > 0) {
-              setParent(parentData[0]);
-            }
-          }
-        }
-
-        // Fetch children (beverages that have this beverage's node_id as parent_id)
-        const childrenResponse = await fetch(`/api/beverages?parent_id=${encodeURIComponent(data.node_id)}`);
-        if (childrenResponse.ok) {
-          const childrenData = await childrenResponse.json();
-          setChildren(childrenData);
-        }
-
-        // Fetch revisions
-        const revisionsResponse = await fetch(`/api/beverages/${id}/revisions`);
-        if (revisionsResponse.ok) {
-          const revisionsData = await revisionsResponse.json();
-          setRevisions(revisionsData);
-        }
-      } catch (err) {
-        console.error('Error fetching beverage:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load beverage');
-      } finally {
-        setLoading(false);
+        return;
       }
-    }
+      const data = await response.json();
+      setBeverage(data);
 
-    if (id) {
-      fetchBeverage();
+      // Fetch parent if exists (parent_id is a node_id)
+      if (data.parent_id) {
+        const parentResponse = await fetch(`/api/beverages?node_id=${encodeURIComponent(data.parent_id)}`);
+        if (parentResponse.ok) {
+          const parentData = await parentResponse.json();
+          if (parentData.length > 0) {
+            setParent(parentData[0]);
+          }
+        }
+      } else {
+        setParent(null);
+      }
+
+      // Fetch children (beverages that have this beverage's node_id as parent_id)
+      const childrenResponse = await fetch(`/api/beverages?parent_id=${encodeURIComponent(data.node_id)}`);
+      if (childrenResponse.ok) {
+        const childrenData = await childrenResponse.json();
+        setChildren(childrenData);
+      } else {
+        setChildren([]);
+      }
+
+      // Fetch revisions
+      const revisionsResponse = await fetch(`/api/beverages/${id}/revisions`);
+      if (revisionsResponse.ok) {
+        const revisionsData = await revisionsResponse.json();
+        setRevisions(revisionsData);
+      }
+    } catch (err) {
+      console.error('Error fetching beverage:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load beverage');
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
+  useEffect(() => {
+    if (id) {
+      fetchBeverage();
+    }
+  }, [id, fetchBeverage]);
+
   const canEdit = profile && ['contributor', 'editor', 'moderator', 'admin'].includes(profile.role);
   const canLock = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
+  const canDelete = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
+  const canRevert = profile && ['editor', 'moderator', 'admin'].includes(profile.role);
 
   const handleToggleLock = async () => {
     if (!beverage || !canLock) return;
@@ -121,6 +142,61 @@ export default function BeverageDetailPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to update lock status');
     } finally {
       setLockLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!beverage || !canDelete) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/beverages/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete beverage');
+      }
+
+      toast.success('Beverage deleted');
+      router.push('/beverages');
+    } catch (err) {
+      console.error('Error deleting beverage:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete beverage');
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  };
+
+  const handleRevert = async () => {
+    if (!selectedRevision || !canRevert) return;
+
+    setReverting(true);
+    try {
+      const response = await fetch(`/api/beverages/${id}/revisions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revision_id: selectedRevision.id }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to revert beverage');
+      }
+
+      const data = await response.json();
+      setBeverage(data.beverage);
+      toast.success(`Reverted to revision #${selectedRevision.revision_number}`);
+      await fetchBeverage();
+    } catch (err) {
+      console.error('Error reverting beverage:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to revert beverage');
+    } finally {
+      setReverting(false);
+      setRevertOpen(false);
+      setSelectedRevision(null);
     }
   };
 
@@ -153,7 +229,8 @@ export default function BeverageDetailPage() {
   const groupColor = GROUP_COLORS[beverage.group] || GROUP_COLORS.Other;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Back button */}
       <Button
         variant="ghost"
@@ -216,6 +293,15 @@ export default function BeverageDetailPage() {
               <Link href={`/beverages/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </Link>
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
             </Button>
           )}
         </div>
@@ -432,6 +518,19 @@ export default function BeverageDetailPage() {
                           {new Date(revision.created_at).toLocaleString()}
                         </p>
                       </div>
+                      {canRevert && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRevision(revision);
+                            setRevertOpen(true);
+                          }}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Revert
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -444,6 +543,58 @@ export default function BeverageDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Beverage</DialogTitle>
+          <DialogDescription>
+            This will permanently delete {beverage?.name}. This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            {deleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={revertOpen} onOpenChange={setRevertOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Revert Beverage</DialogTitle>
+          <DialogDescription>
+            Revert {beverage?.name} to revision #{selectedRevision?.revision_number}? This will create a new revision.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setRevertOpen(false)} disabled={reverting}>
+            Cancel
+          </Button>
+          <Button onClick={handleRevert} disabled={reverting}>
+            {reverting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Reverting...
+              </>
+            ) : (
+              'Revert'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

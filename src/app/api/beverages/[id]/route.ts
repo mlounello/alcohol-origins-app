@@ -193,7 +193,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    // Get user profile to check role (only admins can delete)
+    // Get user profile to check role (editors, moderators, and admins can delete)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -202,9 +202,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const userRole = profile?.role || 'viewer';
 
-    if (userRole !== 'admin') {
+    if (!['editor', 'moderator', 'admin'].includes(userRole)) {
       return NextResponse.json(
-        { error: 'Only admins can delete beverages' },
+        { error: 'Only editors, moderators, and admins can delete beverages' },
         { status: 403 }
       );
     }
