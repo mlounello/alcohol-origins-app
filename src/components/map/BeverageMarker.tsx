@@ -5,6 +5,7 @@ import { CircleMarker, Popup } from 'react-leaflet';
 import { Beverage } from '@/types/database';
 import { GROUP_COLORS, getContrastTextColor } from '@/lib/constants';
 import { computeRadius, formatDateText } from '@/lib/utils/dates';
+import { usePermissions } from '@/providers/AuthProvider';
 
 interface BeverageMarkerProps {
   beverage: Beverage;
@@ -12,6 +13,7 @@ interface BeverageMarkerProps {
 }
 
 export function BeverageMarker({ beverage, onEditClick }: BeverageMarkerProps) {
+  const { canEdit } = usePermissions();
   const color = GROUP_COLORS[beverage.group] || GROUP_COLORS.Other;
   const radius = computeRadius(beverage.date_year || 0);
   const textColor = getContrastTextColor(color);
@@ -82,7 +84,7 @@ export function BeverageMarker({ beverage, onEditClick }: BeverageMarkerProps) {
             >
               View details →
             </Link>
-            {onEditClick && (
+            {onEditClick && canEdit && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
