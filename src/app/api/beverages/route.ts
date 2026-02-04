@@ -140,6 +140,9 @@ export async function POST(request: NextRequest) {
 
     // Generate node_id from name, ensure uniqueness
     let nodeId = generateNodeId(body.name);
+    if (!nodeId) {
+      nodeId = `beverage-${Date.now().toString(36)}`;
+    }
 
     const { data: existing } = await supabase
       .from('beverages')
