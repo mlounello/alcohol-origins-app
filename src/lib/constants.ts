@@ -1,13 +1,21 @@
-import { BeverageGroup, UserRole } from '@/types/database';
+import { UserRole } from '@/types/database';
 
-// Group colors matching the original Python implementation
-export const GROUP_COLORS: Record<BeverageGroup, string> = {
+// Default group colors (used as fallback; overridden by dynamic groups from database)
+export const DEFAULT_GROUP_COLORS: Record<string, string> = {
   Grain: '#f9d81b',   // Yellow
   Grape: '#75147c',   // Purple
   Sugar: '#FFFFFF',   // White
   Cactus: '#367c21',  // Green
   Other: '#808080',   // Gray
 };
+
+// Mutable group colors - updated at runtime from GroupsProvider
+export let GROUP_COLORS: Record<string, string> = { ...DEFAULT_GROUP_COLORS };
+
+// Function to update GROUP_COLORS at runtime when groups are loaded from the database
+export function setGroupColors(colors: Record<string, string>) {
+  GROUP_COLORS = { ...colors };
+}
 
 // Map configuration
 export const MAP_CONFIG = {
@@ -41,13 +49,14 @@ export const TILE_LAYERS = {
   },
 };
 
-// Role permissions
+// Role permissions (each level inherits all previous levels)
+// viewer → contributor → editor → moderator → admin
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   viewer: ['read'],
   contributor: ['read', 'create', 'edit'],
   editor: ['read', 'create', 'edit', 'revert', 'lock'],
-  moderator: ['read', 'create', 'edit', 'revert', 'lock', 'manage_users'],
-  admin: ['read', 'create', 'edit', 'revert', 'lock', 'delete', 'manage_users', 'import', 'manage_settings'],
+  moderator: ['read', 'create', 'edit', 'revert', 'lock', 'manage_users', 'manage_groups'],
+  admin: ['read', 'create', 'edit', 'revert', 'lock', 'delete', 'manage_users', 'manage_groups', 'import', 'manage_settings'],
 };
 
 // Check if a role can perform an action
@@ -97,10 +106,19 @@ export const BEVERAGE_TYPES = [
   'Other',
 ] as const;
 
-export const BEVERAGE_GROUPS: BeverageGroup[] = [
+// Default groups (used as fallback; overridden by dynamic groups from database)
+export const DEFAULT_BEVERAGE_GROUPS: string[] = [
   'Grain',
   'Grape',
   'Sugar',
   'Cactus',
   'Other',
 ];
+
+// Mutable group list - updated at runtime from GroupsProvider
+export let BEVERAGE_GROUPS: string[] = [...DEFAULT_BEVERAGE_GROUPS];
+
+// Function to update BEVERAGE_GROUPS at runtime
+export function setBeverageGroups(groups: string[]) {
+  BEVERAGE_GROUPS = [...groups];
+}

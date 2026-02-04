@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { BeverageGroup } from '@/types/database';
-import { BEVERAGE_GROUPS, BEVERAGE_TYPES, GROUP_COLORS } from '@/lib/constants';
+import { BEVERAGE_TYPES } from '@/lib/constants';
+import { useGroups } from '@/providers/GroupsProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,7 @@ import { Search, SlidersHorizontal, X } from 'lucide-react';
 
 export interface FilterState {
   search: string;
-  groups: BeverageGroup[];
+  groups: string[];
   types: string[];
   yearRange: [number | null, number | null];
   country: string;
@@ -45,7 +45,9 @@ export function FilterPanel({
 }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleGroupToggle = (group: BeverageGroup) => {
+  const { groupNames, groupColors: colors } = useGroups();
+
+  const handleGroupToggle = (group: string) => {
     const newGroups = filters.groups.includes(group)
       ? filters.groups.filter((g) => g !== group)
       : [...filters.groups, group];
@@ -125,7 +127,7 @@ export function FilterPanel({
             <div className="space-y-3">
               <Label className="text-sm font-medium">Beverage Groups</Label>
               <div className="flex flex-wrap gap-2">
-                {BEVERAGE_GROUPS.map((group) => (
+                {groupNames.map((group) => (
                   <button
                     key={group}
                     onClick={() => handleGroupToggle(group)}
@@ -142,9 +144,9 @@ export function FilterPanel({
                     <span
                       className="w-3 h-3 rounded-full"
                       style={{
-                        backgroundColor: GROUP_COLORS[group],
+                        backgroundColor: colors[group] || '#808080',
                         border:
-                          GROUP_COLORS[group] === '#FFFFFF'
+                          colors[group] === '#FFFFFF'
                             ? '1px solid #666'
                             : 'none',
                       }}

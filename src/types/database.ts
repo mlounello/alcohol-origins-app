@@ -1,6 +1,17 @@
 export type UserRole = 'viewer' | 'contributor' | 'editor' | 'moderator' | 'admin';
 
-export type BeverageGroup = 'Grain' | 'Grape' | 'Sugar' | 'Cactus' | 'Other';
+// BeverageGroup is now a dynamic string type since groups are managed in the database
+export type BeverageGroup = string;
+
+export interface BeverageGroupConfig {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Profile {
   id: string;

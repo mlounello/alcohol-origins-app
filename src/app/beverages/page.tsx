@@ -31,7 +31,7 @@ export default function BeveragesPage() {
   const [groupFilter, setGroupFilter] = useState<BeverageGroup | 'all'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'recent'>('name');
 
-  const canAdd = profile && ['contributor', 'editor', 'admin'].includes(profile.role);
+  const canAdd = profile && ['contributor', 'editor', 'moderator', 'admin'].includes(profile.role);
 
   useEffect(() => {
     async function fetchBeverages() {

@@ -5,7 +5,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Users, Database, Settings } from 'lucide-react';
+import { Upload, Users, Database, Settings, Palette } from 'lucide-react';
 
 export default function AdminPage() {
   const { profile } = useAuth();
@@ -69,6 +69,24 @@ export default function AdminPage() {
           <CardContent>
             <Button asChild variant="outline">
               <Link href="/admin/users">Manage Users</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Group Management - Moderator and Admin */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Manage Groups
+            </CardTitle>
+            <CardDescription>
+              Add, edit, and configure beverage group categories with colors
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/admin/groups">Manage Groups</Link>
             </Button>
           </CardContent>
         </Card>

@@ -161,7 +161,20 @@ export function useAuth() {
   return context;
 }
 
-// Helper hook to check permissions
+// Role hierarchy levels - higher number = more permissions
+const ROLE_LEVELS: Record<UserRole, number> = {
+  viewer: 0,
+  contributor: 1,
+  editor: 2,
+  moderator: 3,
+  admin: 4,
+};
+
+function hasRoleOrHigher(role: UserRole, minimumRole: UserRole): boolean {
+  return ROLE_LEVELS[role] >= ROLE_LEVELS[minimumRole];
+}
+
+// Helper hook to check permissions (uses inheritance - each role inherits all lower role permissions)
 export function usePermissions() {
   const { profile } = useAuth();
 
@@ -170,11 +183,17 @@ export function usePermissions() {
   return {
     role,
     canView: true,
-    canCreate: ['contributor', 'editor', 'admin'].includes(role),
-    canEdit: ['contributor', 'editor', 'admin'].includes(role),
-    canRevert: ['editor', 'admin'].includes(role),
+    canCreate: hasRoleOrHigher(role, 'contributor'),
+    canEdit: hasRoleOrHigher(role, 'contributor'),
+    canRevert: hasRoleOrHigher(role, 'editor'),
+    canLock: hasRoleOrHigher(role, 'editor'),
+    canManageUsers: hasRoleOrHigher(role, 'moderator'),
+    canManageGroups: hasRoleOrHigher(role, 'moderator'),
     canDelete: role === 'admin',
-    canManageUsers: role === 'admin',
     canImport: role === 'admin',
+    canManageSettings: role === 'admin',
+    hasRoleOrHigher: (minimumRole: UserRole) => hasRoleOrHigher(role, minimumRole),
   };
 }
+
+export { hasRoleOrHigher };

@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Beverage, BeverageGroup } from '@/types/database';
-import { BEVERAGE_GROUPS, BEVERAGE_TYPES } from '@/lib/constants';
+import { Beverage } from '@/types/database';
+import { BEVERAGE_TYPES } from '@/lib/constants';
+import { useGroups } from '@/providers/GroupsProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +28,7 @@ import { toast } from 'sonner';
 const beverageSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.string().min(1, 'Type is required'),
-  group: z.enum(['Grain', 'Grape', 'Sugar', 'Cactus', 'Other'] as const),
+  group: z.string().min(1, 'Group is required'),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   origin_region: z.string().optional(),
@@ -46,6 +47,7 @@ export default function EditBeveragePage() {
   const params = useParams();
   const router = useRouter();
   const { user, profile } = useAuth();
+  const { groupNames } = useGroups();
 
   const [beverage, setBeverage] = useState<Beverage | null>(null);
   const [allBeverages, setAllBeverages] = useState<Beverage[]>([]);
@@ -81,7 +83,7 @@ export default function EditBeveragePage() {
     },
   });
 
-  const canEdit = profile && ['contributor', 'editor', 'admin'].includes(profile.role);
+  const canEdit = profile && ['contributor', 'editor', 'moderator', 'admin'].includes(profile.role);
 
   useEffect(() => {
     async function fetchData() {
@@ -282,13 +284,13 @@ export default function EditBeveragePage() {
               <Label htmlFor="group">Group *</Label>
               <Select
                 value={watch('group')}
-                onValueChange={(value) => setValue('group', value as BeverageGroup)}
+                onValueChange={(value) => setValue('group', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {BEVERAGE_GROUPS.map((group) => (
+                  {groupNames.map((group) => (
                     <SelectItem key={group} value={group}>
                       {group}
                     </SelectItem>
@@ -308,7 +310,7 @@ export default function EditBeveragePage() {
                   id="latitude"
                   type="number"
                   step="any"
-                  {...register('latitude')}
+                  {...register('latitude', { valueAsNumber: true })}
                   placeholder="e.g., 50.8503"
                 />
                 {errors.latitude && (
@@ -322,7 +324,7 @@ export default function EditBeveragePage() {
                   id="longitude"
                   type="number"
                   step="any"
-                  {...register('longitude')}
+                  {...register('longitude', { valueAsNumber: true })}
                   placeholder="e.g., 4.3517"
                 />
                 {errors.longitude && (
@@ -358,7 +360,7 @@ export default function EditBeveragePage() {
                 <Input
                   id="date_year"
                   type="number"
-                  {...register('date_year')}
+                  {...register('date_year', { valueAsNumber: true })}
                   placeholder="e.g., 1445 or -3000 for BCE"
                 />
                 <p className="text-xs text-muted-foreground">

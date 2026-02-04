@@ -96,9 +96,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const profiles = await profileResponse.json();
       const userRole = profiles[0]?.role || 'viewer';
 
-      if (!['editor', 'admin'].includes(userRole)) {
+      if (!['editor', 'moderator', 'admin'].includes(userRole)) {
         return NextResponse.json(
-          { error: 'This beverage is locked and can only be edited by editors or admins' },
+          { error: 'This beverage is locked and can only be edited by editors, moderators, or admins' },
           { status: 403 }
         );
       }
