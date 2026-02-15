@@ -354,6 +354,16 @@ export function BeverageDetailSheet({
             </TabsList>
 
             <TabsContent value="details" className="space-y-4 mt-4">
+              {beverage.image_url && (
+                <div>
+                  <img
+                    src={beverage.image_url}
+                    alt={`${beverage.name} bottle`}
+                    className="h-48 w-full rounded-md object-cover"
+                  />
+                </div>
+              )}
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />

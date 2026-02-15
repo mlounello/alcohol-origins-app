@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
       date_text: body.date_text || body.name, // date_text is NOT NULL in DB, fallback to name
       description: body.description || null,
       citation: body.citation || null,
+      image_url: body.image_url || null,
       parent_id: body.parent_id || null,
       approval_status: shouldAutoApprove ? 'approved' : 'pending',
       approved_by: shouldAutoApprove ? user.id : null,

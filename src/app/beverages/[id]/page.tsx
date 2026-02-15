@@ -594,6 +594,21 @@ export default function BeverageDetailPage() {
             </Card>
           </div>
 
+          {beverage.image_url && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Bottle Image</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <img
+                  src={beverage.image_url}
+                  alt={`${beverage.name} bottle`}
+                  className="max-h-[420px] w-full rounded-md object-contain bg-muted/20"
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Description */}
           {beverage.description && (
             <Card>

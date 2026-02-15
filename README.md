@@ -79,6 +79,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the app.
 
+### 7. Optional: Google Drive Bottle Image Uploads (Phase 1)
+
+If you want beverage image uploads to store in Google Drive:
+
+1. Create a Google Cloud service account with Drive API enabled.
+2. Create a Drive folder for uploads.
+3. Share that folder with the service account email.
+4. Add these environment variables:
+
+```env
+GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL=service-account@project-id.iam.gserviceaccount.com
+GOOGLE_DRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id
+```
+
 ## Project Structure
 
 ```

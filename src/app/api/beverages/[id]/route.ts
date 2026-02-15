@@ -129,6 +129,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       date_text: body.date_text || currentBeverage.date_text || currentBeverage.name, // date_text is NOT NULL
       description: body.description || null,
       citation: body.citation || null,
+      image_url: body.image_url !== undefined ? body.image_url || null : currentBeverage.image_url,
       parent_id: body.parent_id || null,
       approval_status: currentBeverage.approval_status,
       approved_by: currentBeverage.approved_by,

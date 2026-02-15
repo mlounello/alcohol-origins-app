@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -23,7 +23,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Upload, Image as ImageIcon, X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
 
@@ -39,6 +39,7 @@ const beverageSchema = z.object({
   date_text: z.string().optional(),
   description: z.string().optional(),
   citation: z.string().optional(),
+  image_url: z.union([z.literal(''), z.string().url('Image URL must be a valid URL')]).optional(),
   parent_id: z.string().optional().nullable(),
   change_summary: z.string().optional(),
 });
@@ -55,7 +56,9 @@ export default function EditBeveragePage() {
   const [allBeverages, setAllBeverages] = useState<Beverage[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const id = params.id as string;
   const isNew = id === 'new';
@@ -80,6 +83,7 @@ export default function EditBeveragePage() {
       date_text: '',
       description: '',
       citation: '',
+      image_url: '',
       parent_id: null,
       change_summary: '',
     },
@@ -124,6 +128,7 @@ export default function EditBeveragePage() {
           setValue('date_text', data.date_text || '');
           setValue('description', data.description || '');
           setValue('citation', data.citation || '');
+          setValue('image_url', data.image_url || '');
           setValue('parent_id', data.parent_id);
         }
       } catch (err) {
@@ -187,6 +192,53 @@ export default function EditBeveragePage() {
       toast.error(err instanceof Error ? err.message : 'Failed to save beverage');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const maxFileSizeBytes = 2 * 1024 * 1024;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only JPG, PNG, and WEBP files are allowed');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > maxFileSizeBytes) {
+      toast.error('File exceeds 2MB limit');
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/uploads/drive', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload image');
+      }
+
+      setValue('image_url', data.imageUrl, { shouldDirty: true });
+      toast.success('Image uploaded');
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+      event.target.value = '';
     }
   };
 
@@ -460,6 +512,67 @@ export default function EditBeveragePage() {
                 placeholder="Reference sources for this information..."
                 rows={2}
               />
+            </div>
+
+            {/* Bottle Image */}
+            <div className="space-y-2">
+              <Label>Bottle Image (optional)</Label>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload to Drive
+                    </>
+                  )}
+                </Button>
+                {watch('image_url') && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setValue('image_url', '', { shouldDirty: true })}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Remove Image
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <p className="text-xs text-muted-foreground">
+                Max size: 2MB. Allowed formats: JPG, PNG, WEBP.
+              </p>
+              {watch('image_url') && (
+                <div className="rounded-md border p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <ImageIcon className="h-4 w-4" />
+                    Image preview
+                  </div>
+                  <img
+                    src={watch('image_url')!}
+                    alt="Beverage"
+                    className="h-48 w-full rounded-md object-cover"
+                  />
+                </div>
+              )}
+              {errors.image_url && (
+                <p className="text-sm text-red-500">{errors.image_url.message}</p>
+              )}
             </div>
 
             {beverage?.approval_status === 'rejected' && beverage.rejection_reason && (
