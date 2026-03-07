@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const { db, schema } = await createDbClient();
+    const debugData = process.env.DEBUG_DATA === 'true';
+    const tableName = 'beverage_groups';
 
-    const { data: groups, error } = await supabase
+    const { data: groups, error } = await db
       .from('beverage_groups')
       .select('*')
       .order('sort_order', { ascending: true });
+
+    if (debugData) {
+      console.log(`[DEBUG_DATA] schema=${schema}`);
+      console.log(`[DEBUG_DATA] table=${tableName}`);
+      console.log(`[DEBUG_DATA] error_code=${error?.code ?? 'none'}`);
+      console.log(`[DEBUG_DATA] error_message=${error?.message ?? 'none'}`);
+      console.log(`[DEBUG_DATA] data_length=${groups?.length ?? 0}`);
+    }
 
     if (error) {
       console.error('Error fetching groups:', error);
@@ -29,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -42,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Check role (moderator or admin)
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
       .select('role, is_banned')
       .eq('id', user.id)
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the next sort order
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('beverage_groups')
       .select('sort_order')
       .order('sort_order', { ascending: false })
@@ -81,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const nextSortOrder = (existing?.[0]?.sort_order || 0) + 1;
 
-    const { data: newGroup, error } = await supabase
+    const { data: newGroup, error } = await db
       .from('beverage_groups')
       .insert({
         name: body.name.trim(),

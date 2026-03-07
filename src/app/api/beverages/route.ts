@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 import { Beverage, BeverageGroup } from '@/types/database';
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  const { db, schema } = await createDbClient();
   const { searchParams } = new URL(request.url);
+  const debugData = process.env.DEBUG_DATA === 'true';
+  const tableName = 'beverages';
 
   // Parse query parameters
   const search = searchParams.get('search') || '';
@@ -18,79 +20,71 @@ export async function GET(request: NextRequest) {
   const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
   try {
-    // Build query using direct REST API call
-    let url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?select=*`;
-    const filters: string[] = [];
+    if (debugData) {
+      console.log(`[DEBUG_DATA] schema=${schema}`);
+      console.log(`[DEBUG_DATA] table=${tableName}`);
+    }
 
-    // Add filters
+    let query = db.from('beverages').select('*');
+
     if (search) {
-      filters.push(`or=(name.ilike.*${encodeURIComponent(search)}*,description.ilike.*${encodeURIComponent(search)}*,type.ilike.*${encodeURIComponent(search)}*)`);
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,type.ilike.%${search}%`);
     }
 
     if (groups && groups.length > 0) {
-      filters.push(`group=in.(${groups.map(g => `"${g}"`).join(',')})`);
+      query = query.in('group', groups);
     }
 
     if (types && types.length > 0) {
-      filters.push(`type=in.(${types.map(t => `"${t}"`).join(',')})`);
+      query = query.in('type', types);
     }
 
     if (country) {
-      filters.push(`origin_country=eq.${encodeURIComponent(country)}`);
+      query = query.eq('origin_country', country);
     }
 
     if (minYear) {
-      filters.push(`date_year=gte.${minYear}`);
+      query = query.gte('date_year', Number(minYear));
     }
 
     if (maxYear) {
-      filters.push(`date_year=lte.${maxYear}`);
+      query = query.lte('date_year', Number(maxYear));
     }
 
     if (parentId) {
-      filters.push(`parent_id=eq.${parentId}`);
+      query = query.eq('parent_id', parentId);
     }
 
     if (nodeId) {
-      filters.push(`node_id=eq.${encodeURIComponent(nodeId)}`);
+      query = query.eq('node_id', nodeId);
     }
 
     // Only return approved beverages for public queries
-    filters.push('approval_status=eq.approved');
+    query = query.eq('approval_status', 'approved');
 
-    // Append filters to URL
-    if (filters.length > 0) {
-      url += '&' + filters.join('&');
-    }
-
-    // Add ordering
-    url += '&order=date_year.asc';
+    query = query.order('date_year', { ascending: true });
 
     // Add limit if specified
     if (limit) {
-      url += `&limit=${limit}`;
+      query = query.limit(limit);
     }
 
-    const response = await fetch(url, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const { data, error } = await query;
+    if (debugData) {
+      console.log(`[DEBUG_DATA] error_code=${error?.code ?? 'none'}`);
+      console.log(`[DEBUG_DATA] error_message=${error?.message ?? 'none'}`);
+      console.log(`[DEBUG_DATA] data_length=${data?.length ?? 0}`);
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Supabase fetch error:', errorText);
+    if (error) {
+      console.error('Supabase fetch error:', error);
       return NextResponse.json(
         { error: 'Failed to fetch beverages' },
-        { status: response.status }
+        { status: 500 }
       );
     }
 
-    const beverages: Beverage[] = await response.json();
-
-    return NextResponse.json(beverages);
+    return NextResponse.json((data || []) as Beverage[]);
   } catch (error) {
     console.error('Error fetching beverages:', error);
     return NextResponse.json(
@@ -110,7 +104,7 @@ function generateNodeId(name: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -147,7 +141,7 @@ export async function POST(request: NextRequest) {
       nodeId = `beverage-${Date.now().toString(36)}`;
     }
 
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('beverages')
       .select('node_id')
       .eq('node_id', nodeId)
@@ -157,7 +151,7 @@ export async function POST(request: NextRequest) {
       nodeId = `${nodeId}-${Date.now().toString(36)}`;
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
       .select('role, is_banned')
       .eq('id', user.id)
@@ -195,7 +189,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Use Supabase JS client which carries the user's auth session for RLS
-    const { data: newBeverage, error: insertError } = await supabase
+    const { data: newBeverage, error: insertError } = await db
       .from('beverages')
       .insert(beverageData)
       .select()
@@ -210,7 +204,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create initial revision (column names match DB schema: edited_by, edit_summary)
-    const { error: revisionError } = await supabase
+    const { error: revisionError } = await db
       .from('beverage_revisions')
       .insert({
         beverage_id: newBeverage.id,
@@ -226,7 +220,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log activity
-    await supabase
+    await db
       .from('activity_log')
       .insert({
         user_id: user.id,
