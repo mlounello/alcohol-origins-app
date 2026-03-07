@@ -23,27 +23,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    const debugData = process.env.NEXT_PUBLIC_DEBUG_DATA === 'true' || process.env.DEBUG_DATA === 'true';
     try {
-      // Use fetch directly to avoid Supabase client query issues
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`;
+      const url = `/api/profiles/${userId}`;
+      if (debugData) {
+        console.log(`[DEBUG_DATA] fetchProfile url=${url}`);
+      }
 
       const response = await fetch(url, {
-        headers: {
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
+      if (debugData) {
+        console.log(`[DEBUG_DATA] fetchProfile status=${response.status}`);
+        console.log(`[DEBUG_DATA] fetchProfile statusText=${response.statusText}`);
+      }
+
       if (!response.ok) {
+        const errorText = await response.text();
+        if (debugData) {
+          console.log(`[DEBUG_DATA] fetchProfile errorBody=${errorText.slice(0, 200)}`);
+        }
+        if (response.status === 404) {
+          // Temporary tolerance while profile bootstrap is settling.
+          return null;
+        }
         console.error('Profile fetch failed:', response.statusText);
         return null;
       }
 
       const data = await response.json();
 
-      if (data && data.length > 0) {
-        return data[0] as Profile;
+      if (data) {
+        if (debugData) {
+          console.log(`[DEBUG_DATA] fetchProfile role=${data.role ?? 'unknown'}`);
+        }
+        return data as Profile;
       }
 
       return null;

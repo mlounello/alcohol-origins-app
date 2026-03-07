@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
+  const debugData = process.env.DEBUG_DATA === 'true';
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = Math.max(1, Math.min(50, parseInt(searchParams.get('pageSize') || '20', 10)));
@@ -19,21 +20,46 @@ export async function GET(request: Request) {
     );
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from('profiles')
-    .select('role, is_banned')
+    .select('is_banned')
     .eq('id', user.id)
     .single();
 
   if (profile?.is_banned) {
+    if (debugData) {
+      console.log('[DEBUG_DATA] pending_queue deny', {
+        resolvedRole: null,
+        denyReason: 'user_banned',
+      });
+    }
     return NextResponse.json(
       { error: 'Your account is banned' },
       { status: 403 }
     );
   }
 
-  const userRole = profile?.role || 'viewer';
-  if (!['editor', 'moderator', 'admin'].includes(userRole)) {
+  const { data: roleResult, error: roleErr } = await db.rpc('get_user_role');
+  const resolvedRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
+  if (debugData) {
+    console.log('[DEBUG_DATA] pending_queue role', {
+      resolvedRole,
+      roleErrorCode: roleErr?.code ?? null,
+      roleErrorMessage: roleErr?.message ?? null,
+    });
+  }
+
+  if (!['editor', 'moderator', 'admin'].includes(resolvedRole)) {
+    if (debugData) {
+      console.log('[DEBUG_DATA] pending_queue deny', {
+        resolvedRole,
+        denyReason: 'insufficient_role',
+      });
+    }
     return NextResponse.json(
       { error: 'Only editors, moderators, and admins can view the approval queue' },
       { status: 403 }
@@ -42,7 +68,7 @@ export async function GET(request: Request) {
 
   const statusFilter = includeRejected ? ['pending', 'rejected'] : ['pending'];
 
-  const { data: pending, error, count } = await supabase
+  const { data: pending, error, count } = await db
     .from('beverages')
     .select('*, creator:created_by(display_name,email)', { count: 'exact' })
     .in('approval_status', statusFilter)
