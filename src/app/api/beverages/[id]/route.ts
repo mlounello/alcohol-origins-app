@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 import { Beverage } from '@/types/database';
 
 interface RouteParams {
@@ -8,14 +8,14 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
-    let userRole: string | null = null;
-    if (user) {
-      const { data: profile } = await supabase
+      let userRole: string | null = null;
+      if (user) {
+      const { data: profile } = await db
         .from('profiles')
         .select('role, is_banned')
         .eq('id', user.id)
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       userRole = profile?.role ?? 'viewer';
     }
 
-    let query = supabase
+    let query = db
       .from('beverages')
       .select('*')
       .eq('id', id);
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,7 +78,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
 
     // Get current beverage to check if it exists and to create revision
-    const { data: currentBeverage, error: currentError } = await supabase
+    const { data: currentBeverage, error: currentError } = await db
       .from('beverages')
       .select('*')
       .eq('id', id)
@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
       .select('role, is_banned')
       .eq('id', user.id)
@@ -141,7 +141,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: updatedBeverage, error: updateError } = await supabase
+    const { data: updatedBeverage, error: updateError } = await db
       .from('beverages')
       .update(updateData)
       .eq('id', id)
@@ -157,7 +157,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get latest revision number
-    const { data: revisions } = await supabase
+    const { data: revisions } = await db
       .from('beverage_revisions')
       .select('revision_number')
       .eq('beverage_id', id)
@@ -167,7 +167,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const nextRevisionNumber = (revisions?.[0]?.revision_number || 0) + 1;
 
     // Create revision (column names match DB schema: edited_by, edit_summary)
-    await supabase
+    await db
       .from('beverage_revisions')
       .insert({
         beverage_id: id,
@@ -178,7 +178,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       });
 
     // Log activity
-    await supabase
+    await db
       .from('activity_log')
       .insert({
         user_id: user.id,
@@ -200,7 +200,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -213,7 +213,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   try {
     // Get user profile to check role (editors, moderators, and admins can delete)
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
       .select('role, is_banned')
       .eq('id', user.id)
@@ -236,14 +236,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get beverage name before deleting (for activity log)
-    const { data: beverage } = await supabase
+    const { data: beverage } = await db
       .from('beverages')
       .select('name')
       .eq('id', id)
       .single();
 
     // Delete beverage using Supabase client (carries user's auth session for RLS)
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await db
       .from('beverages')
       .delete()
       .eq('id', id);
@@ -257,7 +257,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Log activity
-    await supabase
+    await db
       .from('activity_log')
       .insert({
         user_id: user.id,
