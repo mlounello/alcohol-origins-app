@@ -36,6 +36,8 @@ const CONTROL_ROOM_SYNC_URL =
   process.env.CONTROL_ROOM_APP_USERS_SYNC_URL ||
   'https://mlounello.com/api/admin/sync/app-users';
 const CONTROL_ROOM_SYNC_SECRET = process.env.APP_SYNC_SECRET;
+const CF_ACCESS_CLIENT_ID = process.env.CF_ACCESS_CLIENT_ID;
+const CF_ACCESS_CLIENT_SECRET = process.env.CF_ACCESS_CLIENT_SECRET;
 const APP_SLUG = 'alcohol-origins';
 const APP_NOTES = 'Imported from Alcohol Origins';
 
@@ -112,6 +114,20 @@ async function parseControlRoomResponse(response: Response) {
   }
 }
 
+function isCloudflareAccessBlock(responseBody: unknown) {
+  if (typeof responseBody !== 'string') {
+    return false;
+  }
+
+  return (
+    responseBody.includes('Cloudflare Access') ||
+    responseBody.includes('Sign in ・ Cloudflare Access') ||
+    responseBody.includes('Error ・ Cloudflare Access') ||
+    responseBody.includes('<title>Sign in ・ Cloudflare Access</title>') ||
+    responseBody.includes('<title>Error ・ Cloudflare Access</title>')
+  );
+}
+
 async function fetchUsersForSync(db: DbClient, userId?: string) {
   let query = db.from('v_admin_users').select('*');
   if (userId) {
@@ -153,6 +169,20 @@ export async function syncAppUsersToControlRoom({
     };
   }
 
+  if (!CF_ACCESS_CLIENT_ID || !CF_ACCESS_CLIENT_SECRET) {
+    console.error('[app-user-sync] missing cloudflare access service token env', {
+      trigger,
+      hasClientId: Boolean(CF_ACCESS_CLIENT_ID),
+      hasClientSecret: Boolean(CF_ACCESS_CLIENT_SECRET),
+    });
+    return {
+      ok: false,
+      skipped: true,
+      syncedCount: 0,
+      error: 'Missing CF_ACCESS_CLIENT_ID or CF_ACCESS_CLIENT_SECRET',
+    };
+  }
+
   const sourceUsers = users ?? (await fetchUsersForSync(db, userId));
   const payloadUsers = sourceUsers.map(toPayloadUser).filter(Boolean) as ControlRoomUserPayload[];
 
@@ -170,6 +200,8 @@ export async function syncAppUsersToControlRoom({
       headers: {
         'Content-Type': 'application/json',
         'X-App-Sync-Secret': CONTROL_ROOM_SYNC_SECRET,
+        'CF-Access-Client-Id': CF_ACCESS_CLIENT_ID,
+        'CF-Access-Client-Secret': CF_ACCESS_CLIENT_SECRET,
       },
       body: JSON.stringify({
         appSlug: APP_SLUG,
@@ -218,6 +250,22 @@ export async function syncAppUsersToControlRoom({
         syncedCount: payloadUsers.length,
         status: response.status,
         error: 'Control room rejected sync payload',
+        responseBody,
+      };
+    }
+
+    if (isCloudflareAccessBlock(responseBody)) {
+      console.error('[app-user-sync] blocked by cloudflare access', {
+        trigger,
+        fullSync,
+        status: response.status,
+      });
+
+      return {
+        ok: false,
+        syncedCount: payloadUsers.length,
+        status: response.status || 403,
+        error: 'Cloudflare Access blocked sync request',
         responseBody,
       };
     }
