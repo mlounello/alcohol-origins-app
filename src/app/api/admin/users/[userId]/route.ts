@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createDbClient } from '@/lib/supabase/server';
+import { syncAppUsersToControlRoom } from '@/lib/control-room/app-user-sync';
 import { UserRole } from '@/types/database';
 
 interface RouteParams {
@@ -144,6 +145,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { error: 'User not found' },
         { status: 404 }
       );
+    }
+
+    const syncResult = await syncAppUsersToControlRoom({
+      db,
+      fullSync: false,
+      userId,
+      trigger: 'admin-user-update',
+    });
+
+    if (!syncResult.ok && !syncResult.skipped) {
+      console.error('[admin-user-update] control room sync failed', syncResult);
     }
 
     return NextResponse.json(updatedProfile);

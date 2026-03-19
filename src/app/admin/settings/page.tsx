@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const { profile } = useAuth();
   const { settings, updateSettings, resetSettings } = useSettings();
   const [saving, setSaving] = useState(false);
+  const [syncingUsers, setSyncingUsers] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -85,6 +86,36 @@ export default function SettingsPage() {
     resetSettings();
     setHasChanges(true);
     setStatus(null);
+  };
+
+  const handleUserSync = async () => {
+    setSyncingUsers(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch('/api/admin/sync-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to sync users');
+      }
+
+      setStatus({
+        type: 'success',
+        message: `Synced ${result?.syncedCount ?? 0} user${result?.syncedCount === 1 ? '' : 's'} to Control Room.`,
+      });
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to sync users',
+      });
+    } finally {
+      setSyncingUsers(false);
+    }
   };
 
   // Generate the embed URL
@@ -174,6 +205,16 @@ export default function SettingsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleUserSync} disabled={saving || syncingUsers}>
+            {syncingUsers ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Syncing Users...
+              </>
+            ) : (
+              'Sync Users'
+            )}
+          </Button>
           <Button variant="outline" onClick={handleReset} disabled={saving}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset to Defaults

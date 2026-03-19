@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createDbClient } from '@/lib/supabase/server';
+import { syncAppUsersToControlRoom } from '@/lib/control-room/app-user-sync';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -250,6 +251,19 @@ export async function GET(request: Request, { params }: RouteParams) {
       effectiveRole,
       createdProfile,
     });
+  }
+
+  if (createdProfile) {
+    const syncResult = await syncAppUsersToControlRoom({
+      db,
+      fullSync: false,
+      userId: user.id,
+      trigger: 'profile-bootstrap',
+    });
+
+    if (!syncResult.ok && !syncResult.skipped) {
+      console.error('[profiles_route] control room sync failed', syncResult);
+    }
   }
 
   return NextResponse.json(responseProfile);
