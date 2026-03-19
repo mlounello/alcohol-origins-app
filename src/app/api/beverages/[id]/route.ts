@@ -6,15 +6,26 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+async function getResolvedRole(db: Awaited<ReturnType<typeof createDbClient>>['db']) {
+  const { data: roleResult, error: roleErr } = await db.rpc('get_user_role');
+  const resolvedRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
+  return { resolvedRole, roleErr };
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const { supabase, db } = await createDbClient();
+  const debugData = process.env.DEBUG_DATA === 'true';
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
-      let userRole: string | null = null;
-      if (user) {
+    let userRole: string | null = null;
+    if (user) {
       const { data: profile } = await db
         .from('profiles')
         .select('role, is_banned')
@@ -26,7 +37,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           { status: 403 }
         );
       }
-      userRole = profile?.role ?? 'viewer';
+      const { resolvedRole, roleErr } = await getResolvedRole(db);
+      userRole = resolvedRole;
+      if (debugData) {
+        console.log('[DEBUG_DATA] beverage_detail_role', {
+          id,
+          userId: user.id,
+          resolvedRole,
+          roleErrorCode: roleErr?.code ?? null,
+          roleErrorMessage: roleErr?.message ?? null,
+        });
+      }
     }
 
     let query = db
@@ -64,6 +85,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const { supabase, db } = await createDbClient();
+  const debugData = process.env.DEBUG_DATA === 'true';
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -104,7 +126,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const userRole = profile?.role || 'viewer';
+    const { resolvedRole, roleErr } = await getResolvedRole(db);
+    const userRole = resolvedRole;
+    if (debugData) {
+      console.log('[DEBUG_DATA] beverage_update_role', {
+        id,
+        userId: user.id,
+        resolvedRole,
+        roleErrorCode: roleErr?.code ?? null,
+        roleErrorMessage: roleErr?.message ?? null,
+      });
+    }
 
     // Check if locked (only editors/admins can update locked entries)
     if (currentBeverage.is_locked) {
@@ -149,9 +181,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (updateError) {
-      console.error('Supabase update error:', updateError);
+      console.error('Supabase update error:', {
+        code: updateError.code,
+        message: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint,
+      });
       return NextResponse.json(
-        { error: 'Failed to update beverage' },
+        { error: updateError.message || 'Failed to update beverage' },
         { status: 500 }
       );
     }
@@ -201,6 +238,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const { supabase, db } = await createDbClient();
+  const debugData = process.env.DEBUG_DATA === 'true';
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -226,7 +264,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const userRole = profile?.role || 'viewer';
+    const { resolvedRole, roleErr } = await getResolvedRole(db);
+    const userRole = resolvedRole;
+    if (debugData) {
+      console.log('[DEBUG_DATA] beverage_delete_role', {
+        id,
+        userId: user.id,
+        resolvedRole,
+        roleErrorCode: roleErr?.code ?? null,
+        roleErrorMessage: roleErr?.message ?? null,
+      });
+    }
 
     if (!['editor', 'moderator', 'admin'].includes(userRole)) {
       return NextResponse.json(
