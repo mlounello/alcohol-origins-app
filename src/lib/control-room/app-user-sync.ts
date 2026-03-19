@@ -29,6 +29,7 @@ export type AppUserSyncResult = {
   syncedCount: number;
   status?: number;
   error?: string;
+  responseBody?: unknown;
 };
 
 const CONTROL_ROOM_SYNC_URL =
@@ -91,6 +92,24 @@ function toPayloadUser(row: AdminUserRow): ControlRoomUserPayload | null {
     membershipStatus: mapMembershipStatus(row),
     notes: APP_NOTES,
   };
+}
+
+async function parseControlRoomResponse(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    return await response.text();
+  } catch {
+    return null;
+  }
 }
 
 async function fetchUsersForSync(db: DbClient, userId?: string) {
@@ -161,14 +180,15 @@ export async function syncAppUsersToControlRoom({
       signal: controller.signal,
     });
 
+    const responseBody = await parseControlRoomResponse(response);
+
     if (!response.ok) {
-      const errorText = await response.text();
       console.error('[app-user-sync] sync failed', {
         trigger,
         fullSync,
         status: response.status,
         statusText: response.statusText,
-        body: errorText.slice(0, 500),
+        body: typeof responseBody === 'string' ? responseBody.slice(0, 500) : responseBody,
       });
 
       return {
@@ -176,6 +196,29 @@ export async function syncAppUsersToControlRoom({
         syncedCount: payloadUsers.length,
         status: response.status,
         error: response.statusText || 'Control room sync failed',
+        responseBody,
+      };
+    }
+
+    if (
+      responseBody &&
+      typeof responseBody === 'object' &&
+      'ok' in responseBody &&
+      (responseBody as { ok?: boolean }).ok === false
+    ) {
+      console.error('[app-user-sync] control room returned ok=false', {
+        trigger,
+        fullSync,
+        status: response.status,
+        body: responseBody,
+      });
+
+      return {
+        ok: false,
+        syncedCount: payloadUsers.length,
+        status: response.status,
+        error: 'Control room rejected sync payload',
+        responseBody,
       };
     }
 
@@ -183,12 +226,14 @@ export async function syncAppUsersToControlRoom({
       trigger,
       fullSync,
       syncedCount: payloadUsers.length,
+      responseBody,
     });
 
     return {
       ok: true,
       syncedCount: payloadUsers.length,
       status: response.status,
+      responseBody,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown sync error';

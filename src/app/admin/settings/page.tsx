@@ -101,12 +101,19 @@ export default function SettingsPage() {
       const result = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(result?.error || 'Failed to sync users');
+        const detail =
+          result?.controlRoom && typeof result.controlRoom === 'object'
+            ? JSON.stringify(result.controlRoom)
+            : result?.controlRoom;
+        throw new Error(detail ? `${result?.error || 'Failed to sync users'}: ${detail}` : (result?.error || 'Failed to sync users'));
       }
 
       setStatus({
         type: 'success',
-        message: `Synced ${result?.syncedCount ?? 0} user${result?.syncedCount === 1 ? '' : 's'} to Control Room.`,
+        message:
+          typeof result?.controlRoom === 'object' && result.controlRoom
+            ? `Synced ${result?.syncedCount ?? 0} user${result?.syncedCount === 1 ? '' : 's'} to Control Room. Response: ${JSON.stringify(result.controlRoom)}`
+            : `Synced ${result?.syncedCount ?? 0} user${result?.syncedCount === 1 ? '' : 's'} to Control Room.`,
       });
     } catch (error) {
       setStatus({

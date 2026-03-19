@@ -50,7 +50,10 @@ export async function POST() {
 
   if (result.skipped) {
     return NextResponse.json(
-      { error: result.error || 'User sync is not configured' },
+      {
+        error: result.error || 'User sync is not configured',
+        controlRoom: result.responseBody ?? null,
+      },
       { status: 500 }
     );
   }
@@ -60,6 +63,7 @@ export async function POST() {
       {
         error: result.error || 'Failed to sync users',
         syncedCount: result.syncedCount,
+        controlRoom: result.responseBody ?? null,
       },
       { status: result.status || 502 }
     );
@@ -68,5 +72,6 @@ export async function POST() {
   return NextResponse.json({
     ok: true,
     syncedCount: result.syncedCount,
+    controlRoom: result.responseBody ?? null,
   });
 }
