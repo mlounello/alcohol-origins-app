@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 import { UserRole } from '@/types/database';
 
 interface RouteParams {
@@ -10,7 +10,7 @@ const VALID_ROLES: UserRole[] = ['viewer', 'contributor', 'editor', 'moderator',
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { userId } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,14 +22,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   // Check if user is admin or moderator
-  const { data: currentProfile } = await supabase
+  const { data: currentProfile } = await db
     .from('profiles')
-    .select('role, is_banned')
+    .select('is_banned')
     .eq('id', user.id)
     .single();
-
-  const isAdmin = currentProfile?.role === 'admin';
-  const isModerator = currentProfile?.role === 'moderator';
 
   if (currentProfile?.is_banned) {
     return NextResponse.json(
@@ -37,6 +34,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       { status: 403 }
     );
   }
+
+  const { data: roleResult } = await db.rpc('get_user_role');
+  const currentRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
+  const isAdmin = currentRole === 'admin';
+  const isModerator = currentRole === 'moderator';
 
   if (!isAdmin && !isModerator) {
     return NextResponse.json(
@@ -54,15 +60,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   // Get target user's current role
-  const { data: targetProfile } = await supabase
-    .from('profiles')
-    .select('role')
+  const { data: targetProfile } = await db
+    .from('v_admin_users')
+    .select('effective_role')
     .eq('id', userId)
     .single();
 
   // Moderators cannot edit admins or other moderators
   if (isModerator && !isAdmin) {
-    if (targetProfile?.role === 'admin' || targetProfile?.role === 'moderator') {
+      if (targetProfile?.effective_role === 'admin' || targetProfile?.effective_role === 'moderator') {
       return NextResponse.json(
         { error: 'Moderators cannot modify admin or moderator accounts' },
         { status: 403 }
@@ -118,7 +124,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data: updatedProfile, error } = await supabase
+    const { data: updatedProfile, error } = await db
       .from('profiles')
       .update(updates)
       .eq('id', userId)

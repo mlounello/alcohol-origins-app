@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -7,7 +7,7 @@ interface RouteParams {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -17,9 +17,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from('profiles')
-    .select('role, is_banned')
+    .select('is_banned')
     .eq('id', user.id)
     .single();
 
@@ -30,7 +30,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const userRole = profile?.role || 'viewer';
+  const { data: roleResult } = await db.rpc('get_user_role');
+  const userRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
   if (!['editor', 'moderator', 'admin'].includes(userRole)) {
     return NextResponse.json(
       { error: 'Only editors, moderators, and admins can approve beverages' },
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const { data: beverage } = await supabase
+  const { data: beverage } = await db
     .from('beverages')
     .select('*')
     .eq('id', id)
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ beverage });
   }
 
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await db
     .from('beverages')
     .update({
       approval_status: 'approved',
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  await supabase
+  await db
     .from('activity_log')
     .insert({
       user_id: user.id,

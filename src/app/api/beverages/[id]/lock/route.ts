@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -7,7 +7,7 @@ interface RouteParams {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,9 +20,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     // Get user profile to check role
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
-      .select('role, is_banned')
+      .select('is_banned')
       .eq('id', user.id)
       .single();
 
@@ -33,7 +33,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const userRole = profile?.role || 'viewer';
+    const { data: roleResult } = await db.rpc('get_user_role');
+    const userRole =
+      (typeof roleResult === 'string'
+        ? roleResult
+        : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
 
     // Only editors, moderators, and admins can lock/unlock
     if (!['editor', 'moderator', 'admin'].includes(userRole)) {
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const lock = body.lock === true;
 
     // Update the is_locked field
-    const { data: updatedBeverage, error: updateError } = await supabase
+    const { data: updatedBeverage, error: updateError } = await db
       .from('beverages')
       .update({
         is_locked: lock,

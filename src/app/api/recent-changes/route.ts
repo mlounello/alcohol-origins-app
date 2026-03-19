@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { db } = await createDbClient();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
 
     // Fetch recently updated beverages as a proxy for activity
     // This gets beverages ordered by updated_at, which shows recent changes
-    const { data: beverages, error: beveragesError } = await supabase
+    const { data: beverages, error: beveragesError } = await db
       .from('beverages')
       .select(`
         id,

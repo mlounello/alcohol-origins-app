@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -71,7 +71,7 @@ function sanitizeFileName(name: string): string {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   const {
     data: { user },
@@ -81,9 +81,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from('profiles')
-    .select('role, is_banned')
+    .select('is_banned')
     .eq('id', user.id)
     .single();
 
@@ -91,7 +91,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Your account is banned' }, { status: 403 });
   }
 
-  const userRole = profile?.role || 'viewer';
+  const { data: roleResult } = await db.rpc('get_user_role');
+  const userRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
   if (!['contributor', 'editor', 'moderator', 'admin'].includes(userRole)) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
   }

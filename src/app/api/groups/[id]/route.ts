@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -7,7 +7,7 @@ interface RouteParams {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,9 +20,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   try {
     // Check role (moderator or admin)
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
-      .select('role, is_banned')
+      .select('is_banned')
       .eq('id', user.id)
       .single();
 
@@ -33,7 +33,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const userRole = profile?.role || 'viewer';
+    const { data: roleResult } = await db.rpc('get_user_role');
+    const userRole =
+      (typeof roleResult === 'string'
+        ? roleResult
+        : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
     if (!['moderator', 'admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Only moderators and admins can update groups' },
@@ -44,7 +48,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
 
     // Get current group to check for name changes
-    const { data: currentGroup } = await supabase
+    const { data: currentGroup } = await db
       .from('beverage_groups')
       .select('name')
       .eq('id', id)
@@ -66,7 +70,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.color !== undefined) updateData.color = body.color;
     if (body.sort_order !== undefined) updateData.sort_order = body.sort_order;
 
-    const { data: updatedGroup, error } = await supabase
+    const { data: updatedGroup, error } = await db
       .from('beverage_groups')
       .update(updateData)
       .eq('id', id)
@@ -89,7 +93,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // If the name changed, update all beverages that reference the old name
     if (body.name && body.name.trim() !== currentGroup.name) {
-      await supabase
+      await db
         .from('beverages')
         .update({ group: body.name.trim() })
         .eq('group', currentGroup.name);
@@ -107,7 +111,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -120,9 +124,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   try {
     // Only admins can delete groups
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
-      .select('role, is_banned')
+      .select('is_banned')
       .eq('id', user.id)
       .single();
 
@@ -133,7 +137,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (profile?.role !== 'admin') {
+    const { data: roleResult } = await db.rpc('get_user_role');
+    const userRole =
+      (typeof roleResult === 'string'
+        ? roleResult
+        : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
+    if (userRole !== 'admin') {
       return NextResponse.json(
         { error: 'Only admins can delete groups' },
         { status: 403 }
@@ -141,7 +151,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if any beverages use this group
-    const { data: group } = await supabase
+    const { data: group } = await db
       .from('beverage_groups')
       .select('name')
       .eq('id', id)
@@ -154,7 +164,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { count } = await supabase
+    const { count } = await db
       .from('beverages')
       .select('id', { count: 'exact', head: true })
       .eq('group', group.name);
@@ -166,7 +176,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('beverage_groups')
       .delete()
       .eq('id', id);

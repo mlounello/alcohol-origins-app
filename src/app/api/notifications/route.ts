@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 export async function GET() {
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json([]);
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from('profiles')
     .select('is_banned')
     .eq('id', user.id)
@@ -19,7 +19,7 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
-  const { data: myBeverages, error: beveragesError } = await supabase
+  const { data: myBeverages, error: beveragesError } = await db
     .from('beverages')
     .select('id, name')
     .eq('created_by', user.id);
@@ -29,7 +29,7 @@ export async function GET() {
   }
 
   const beverageIds = myBeverages.map((b) => b.id);
-  const { data: logs, error } = await supabase
+  const { data: logs, error } = await db
     .from('activity_log')
     .select('id, action, beverage_id, beverage_name, created_at, details')
     .in('beverage_id', beverageIds)

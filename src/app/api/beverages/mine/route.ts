@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 export async function GET() {
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -12,7 +12,7 @@ export async function GET() {
     );
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from('profiles')
     .select('is_banned')
     .eq('id', user.id)
@@ -25,7 +25,7 @@ export async function GET() {
     );
   }
 
-  const { data: beverages, error } = await supabase
+  const { data: beverages, error } = await db
     .from('beverages')
     .select('*')
     .eq('created_by', user.id)

@@ -1,26 +1,22 @@
 import { NextResponse } from 'next/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    // Get distinct countries from beverages
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverages?select=origin_country&origin_country=not.is.null&approval_status=eq.approved&order=origin_country.asc`;
+    const { db } = await createDbClient();
+    const { data, error } = await db
+      .from('beverages')
+      .select('origin_country')
+      .not('origin_country', 'is', null)
+      .eq('approval_status', 'approved')
+      .order('origin_country', { ascending: true });
 
-    const response = await fetch(url, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
+    if (error) {
       return NextResponse.json(
         { error: 'Failed to fetch countries' },
-        { status: response.status }
+        { status: 500 }
       );
     }
-
-    const data = await response.json();
 
     // Extract unique countries
     const countries = [...new Set(data.map((item: { origin_country: string }) => item.origin_country))];

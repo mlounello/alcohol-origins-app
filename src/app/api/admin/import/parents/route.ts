@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createDbClient } from '@/lib/supabase/server';
 
 // Check if user is admin
-async function checkAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
+async function checkAdmin(
+  supabase: Awaited<ReturnType<typeof createDbClient>>['supabase'],
+  db: Awaited<ReturnType<typeof createDbClient>>['db']
+) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
 
-  const profileUrl = `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=role`;
-  const response = await fetch(profileUrl, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-    },
-  });
+  const { data: profile } = await db
+    .from('profiles')
+    .select('is_banned')
+    .eq('id', user.id)
+    .single();
+  if (profile?.is_banned) return false;
 
-  if (!response.ok) return false;
-  const profiles = await response.json();
-  return profiles[0]?.role === 'admin';
+  const { data: roleResult } = await db.rpc('get_user_role');
+  const userRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
+  return userRole === 'admin';
 }
 
 // PATCH - Update parent relationships
 export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
-  const isAdmin = await checkAdmin(supabase);
+  const { supabase, db } = await createDbClient();
+  const isAdmin = await checkAdmin(supabase, db);
 
   if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -49,23 +52,15 @@ export async function PATCH(request: NextRequest) {
         continue;
       }
 
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/beverages?id=eq.${childUuid}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ parent_id: parentUuid }),
-        }
-      );
+      const { error } = await db
+        .from('beverages')
+        .update({ parent_id: parentUuid })
+        .eq('id', childUuid);
 
-      if (response.ok) {
+      if (!error) {
         updatedCount++;
       } else {
-        console.warn(`Failed to update parent for ${update.node_id}`);
+        console.warn(`Failed to update parent for ${update.node_id}`, error.message);
       }
     }
 

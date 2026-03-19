@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createDbClient } from '@/lib/supabase/server';
 
 // Check if user is admin
-async function checkAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
+async function checkAdmin(
+  supabase: Awaited<ReturnType<typeof createDbClient>>['supabase'],
+  db: Awaited<ReturnType<typeof createDbClient>>['db']
+) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
 
-  const profileUrl = `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=role`;
-  const response = await fetch(profileUrl, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-    },
-  });
+  const { data: profile } = await db
+    .from('profiles')
+    .select('is_banned')
+    .eq('id', user.id)
+    .single();
+  if (profile?.is_banned) return false;
 
-  if (!response.ok) return false;
-  const profiles = await response.json();
-  return profiles[0]?.role === 'admin';
+  const { data: roleResult } = await db.rpc('get_user_role');
+  const userRole =
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
+  return userRole === 'admin';
 }
 
 // DELETE - Clear all beverages
 export async function DELETE() {
-  const supabase = await createClient();
-  const isAdmin = await checkAdmin(supabase);
+  const { supabase, db } = await createDbClient();
+  const isAdmin = await checkAdmin(supabase, db);
 
   if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -33,7 +36,7 @@ export async function DELETE() {
 
   try {
     // Delete all beverages using authenticated client
-    const { error } = await supabase
+    const { error } = await db
       .from('beverages')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
@@ -51,8 +54,8 @@ export async function DELETE() {
 
 // POST - Insert beverages
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const isAdmin = await checkAdmin(supabase);
+  const { supabase, db } = await createDbClient();
+  const isAdmin = await checkAdmin(supabase, db);
 
   if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < beverages.length; i += batchSize) {
       const batch = beverages.slice(i, i + batchSize);
 
-      const { data: inserted, error } = await supabase
+      const { data: inserted, error } = await db
         .from('beverages')
         .insert(batch)
         .select();

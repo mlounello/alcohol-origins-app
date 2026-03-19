@@ -1,37 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Beverage, BeverageRevision } from '@/types/database';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/supabase/server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+async function getResolvedRole(db: Awaited<ReturnType<typeof createDbClient>>['db']) {
+  const { data: roleResult } = await db.rpc('get_user_role');
+  return (
+    (typeof roleResult === 'string'
+      ? roleResult
+      : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer'
+  );
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
+  const { db } = await createDbClient();
 
   try {
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/beverage_revisions?beverage_id=eq.${id}&select=*&order=revision_number.desc`;
+    const { data: revisions, error } = await db
+      .from('beverage_revisions')
+      .select('*')
+      .eq('beverage_id', id)
+      .order('revision_number', { ascending: false });
 
-    const response = await fetch(url, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Supabase fetch error:', errorText);
+    if (error) {
+      console.error('Supabase fetch error:', error);
       return NextResponse.json(
         { error: 'Failed to fetch revisions' },
-        { status: response.status }
+        { status: 500 }
       );
     }
 
-    const revisions: BeverageRevision[] = await response.json();
-
-    return NextResponse.json(revisions);
+    return NextResponse.json((revisions || []) as BeverageRevision[]);
   } catch (error) {
     console.error('Error fetching revisions:', error);
     return NextResponse.json(
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, db } = await createDbClient();
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser();
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check role (editor, moderator, admin)
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from('profiles')
       .select('role, is_banned')
       .eq('id', user.id)
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const userRole = profile?.role || 'viewer';
+    const userRole = await getResolvedRole(db);
     if (!['editor', 'moderator', 'admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Only editors, moderators, and admins can revert revisions' },
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data: beverage } = await supabase
+    const { data: beverage } = await db
       .from('beverages')
       .select('*')
       .eq('id', id)
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data: revision } = await supabase
+    const { data: revision } = await db
       .from('beverage_revisions')
       .select('*')
       .eq('id', revisionId)
@@ -139,7 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: updatedBeverage, error: updateError } = await supabase
+    const { data: updatedBeverage, error: updateError } = await db
       .from('beverages')
       .update(updatePayload)
       .eq('id', id)
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data: revisions } = await supabase
+    const { data: revisions } = await db
       .from('beverage_revisions')
       .select('revision_number')
       .eq('beverage_id', id)
@@ -163,7 +166,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const nextRevisionNumber = (revisions?.[0]?.revision_number || 0) + 1;
 
-    await supabase
+    await db
       .from('beverage_revisions')
       .insert({
         beverage_id: id,
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         edit_summary: `Reverted to revision #${revision.revision_number}`,
       });
 
-    await supabase
+    await db
       .from('activity_log')
       .insert({
         user_id: user.id,
