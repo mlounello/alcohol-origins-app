@@ -34,8 +34,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  try {
-    const { updates, nodeIdToUuid } = await request.json();
+    try {
+      const { updates, nodeIdToUuid } = await request.json();
 
     if (!Array.isArray(updates) || !nodeIdToUuid) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
@@ -43,19 +43,21 @@ export async function PATCH(request: NextRequest) {
 
     let updatedCount = 0;
 
-    for (const update of updates) {
-      const childUuid = nodeIdToUuid[update.node_id];
-      const parentUuid = nodeIdToUuid[update.parent_node_id];
+      for (const update of updates) {
+        const childUuid = nodeIdToUuid[update.node_id];
+        const parentNodeId = typeof update.parent_node_id === 'string'
+          ? update.parent_node_id
+          : null;
 
-      if (!childUuid || !parentUuid) {
-        console.warn(`Could not find UUIDs for ${update.node_id} -> ${update.parent_node_id}`);
-        continue;
-      }
+        if (!childUuid || !parentNodeId) {
+          console.warn(`Could not resolve parent link for ${update.node_id} -> ${update.parent_node_id}`);
+          continue;
+        }
 
-      const { error } = await db
-        .from('beverages')
-        .update({ parent_id: parentUuid })
-        .eq('id', childUuid);
+        const { error } = await db
+          .from('beverages')
+          .update({ parent_id: parentNodeId })
+          .eq('id', childUuid);
 
       if (!error) {
         updatedCount++;

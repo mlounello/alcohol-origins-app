@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { Beverage, BeverageGroup } from '@/types/database';
 import { GROUP_COLORS, BEVERAGE_GROUPS, BEVERAGE_TYPES, getContrastTextColor } from '@/lib/constants';
 import { formatDateText } from '@/lib/utils/dates';
-import { useAuth } from '@/providers/AuthProvider';
+import { useAuth, usePermissions } from '@/providers/AuthProvider';
 import {
   Sheet,
   SheetContent,
@@ -71,12 +71,11 @@ export function BeverageDetailSheet({
   allBeverages = [],
 }: BeverageDetailSheetProps) {
   const { profile } = useAuth();
+  const { canEdit } = usePermissions();
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [parent, setParent] = useState<Beverage | null>(null);
   const [children, setChildren] = useState<Beverage[]>([]);
-
-  const canEdit = profile && ['contributor', 'editor', 'admin'].includes(profile.role);
 
   const {
     register,

@@ -153,17 +153,23 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await db
       .from('profiles')
-      .select('role, is_banned')
+      .select('is_banned')
       .eq('id', user.id)
       .single();
 
-    const userRole = profile?.role || 'viewer';
     if (profile?.is_banned) {
       return NextResponse.json(
         { error: 'Your account is banned' },
         { status: 403 }
       );
     }
+
+    const { data: roleResult } = await db.rpc('get_user_role');
+    const userRole =
+      (typeof roleResult === 'string'
+        ? roleResult
+        : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
     const shouldAutoApprove = ['editor', 'moderator', 'admin'].includes(userRole);
 
     const beverageData = {

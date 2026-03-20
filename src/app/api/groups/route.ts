@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Check role (moderator or admin)
     const { data: profile } = await db
       .from('profiles')
-      .select('role, is_banned')
+      .select('is_banned')
       .eq('id', user.id)
       .single();
 
@@ -65,7 +65,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userRole = profile?.role || 'viewer';
+    const { data: roleResult } = await db.rpc('get_user_role');
+    const userRole =
+      (typeof roleResult === 'string'
+        ? roleResult
+        : (roleResult as { get_user_role?: string } | null)?.get_user_role) || 'viewer';
+
     if (!['moderator', 'admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Only moderators and admins can create groups' },
