@@ -1,5 +1,8 @@
--- Reinforce the hardened live posture for revision visibility, activity logs,
--- and admin-user access helpers.
+-- Reinforce the final hardened milestone posture for revision visibility,
+-- activity logs, and admin-user access helpers.
+-- This migration intentionally reasserts the canonical end state after the
+-- earlier milestone hardening steps, so older migration history should not be
+-- read in isolation as the final security posture.
 
 grant select on app_alcohol_origins.beverage_revisions to anon, authenticated;
 
