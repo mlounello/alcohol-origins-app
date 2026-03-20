@@ -217,6 +217,60 @@ CREATE TABLE app_alcohol_origins.profiles (
 
 
 --
+-- Name: v_admin_users; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW app_alcohol_origins.v_admin_users AS
+ SELECT profiles.id,
+    profiles.email,
+    profiles.display_name,
+    profiles.avatar_url,
+    profiles.role,
+    profiles.created_at,
+    profiles.updated_at,
+    profiles.is_banned,
+    profiles.banned_at,
+    profiles.banned_reason,
+    profiles.role AS effective_role
+   FROM app_alcohol_origins.profiles;
+
+
+--
+-- Name: get_admin_users(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION app_alcohol_origins.get_admin_users() RETURNS SETOF app_alcohol_origins.v_admin_users
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'app_alcohol_origins', 'public'
+    AS $$
+  SELECT *
+  FROM app_alcohol_origins.v_admin_users
+  WHERE auth.uid() IS NOT NULL
+    AND app_alcohol_origins.get_user_role() IN ('moderator', 'admin')
+  ORDER BY created_at DESC;
+$$;
+
+
+--
+-- Name: get_admin_user(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION app_alcohol_origins.get_admin_user(p_user_id uuid) RETURNS SETOF app_alcohol_origins.v_admin_users
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'app_alcohol_origins', 'public'
+    AS $$
+  SELECT *
+  FROM app_alcohol_origins.v_admin_users
+  WHERE id = p_user_id
+    AND auth.uid() IS NOT NULL
+    AND (
+      auth.uid() = p_user_id
+      OR app_alcohol_origins.get_user_role() IN ('moderator', 'admin')
+    );
+$$;
+
+
+--
 -- Name: activity_log activity_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -502,10 +556,12 @@ ALTER TABLE ONLY app_alcohol_origins.profiles
 
 
 --
--- Name: activity_log Activity log viewable by everyone; Type: POLICY; Schema: public; Owner: -
+-- Name: activity_log Activity log visible to owners and staff; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "Activity log viewable by everyone" ON app_alcohol_origins.activity_log FOR SELECT USING (true);
+CREATE POLICY "Activity log visible to owners and staff" ON app_alcohol_origins.activity_log FOR SELECT USING (((auth.uid() IS NOT NULL) AND (((app_alcohol_origins.get_user_role() = ANY (ARRAY['editor'::app_alcohol_origins.user_role, 'moderator'::app_alcohol_origins.user_role, 'admin'::app_alcohol_origins.user_role])) OR (user_id = auth.uid())) OR (EXISTS ( SELECT 1
+   FROM app_alcohol_origins.beverages
+  WHERE ((beverages.id = activity_log.beverage_id) AND (beverages.created_by = auth.uid())))))));
 
 
 --
@@ -672,4 +728,3 @@ ALTER TABLE app_alcohol_origins.profiles ENABLE ROW LEVEL SECURITY;
 --
 
 \unrestrict ZbKdpb0sfxaC8sN8yfoXIHnMe1OBNq8CpXO33uh4wSgSkpyKDarFnEDNls8JpZB
-

@@ -59,10 +59,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: adminUsers, error } = await db
-      .from('v_admin_users')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: adminUsers, error } = await db.rpc('get_admin_users');
 
     if (error) {
       console.error('Error fetching profiles:', error);

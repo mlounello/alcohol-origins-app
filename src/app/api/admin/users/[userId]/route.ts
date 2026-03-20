@@ -61,11 +61,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   // Get target user's current role
-  const { data: targetProfile } = await db
-    .from('v_admin_users')
-    .select('effective_role')
-    .eq('id', userId)
-    .single();
+  const { data: targetProfiles, error: targetProfileError } = await db.rpc('get_admin_user', {
+    p_user_id: userId,
+  });
+  const targetProfile = targetProfiles?.[0];
+
+  if (targetProfileError) {
+    console.error('Error loading target user:', targetProfileError);
+    return NextResponse.json(
+      { error: 'Failed to load target user' },
+      { status: 500 }
+    );
+  }
+
+  if (!targetProfile) {
+    return NextResponse.json(
+      { error: 'User not found' },
+      { status: 404 }
+    );
+  }
 
   // Moderators cannot edit admins or other moderators
   if (isModerator && !isAdmin) {
@@ -147,6 +161,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const { data: normalizedUsers, error: normalizedUserError } = await db.rpc('get_admin_user', {
+      p_user_id: userId,
+    });
+    const normalizedUser = normalizedUsers?.[0];
+
+    if (normalizedUserError || !normalizedUser) {
+      console.error('Error fetching normalized user:', normalizedUserError);
+      return NextResponse.json(
+        { error: 'Failed to load updated user' },
+        { status: 500 }
+      );
+    }
+
     const syncResult = await syncAppUsersToControlRoom({
       db,
       fullSync: false,
@@ -158,7 +185,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       console.error('[admin-user-update] control room sync failed', syncResult);
     }
 
-    return NextResponse.json(updatedProfile);
+    return NextResponse.json({
+      ...normalizedUser,
+      role: normalizedUser.effective_role ?? 'viewer',
+    });
   } catch (error) {
     console.error('Error updating user:', error);
     return NextResponse.json(

@@ -129,12 +129,9 @@ function isCloudflareAccessBlock(responseBody: unknown) {
 }
 
 async function fetchUsersForSync(db: DbClient, userId?: string) {
-  let query = db.from('v_admin_users').select('*');
-  if (userId) {
-    query = query.eq('id', userId);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = userId
+    ? await db.rpc('get_admin_user', { p_user_id: userId })
+    : await db.rpc('get_admin_users');
 
   if (error) {
     throw new Error(`Failed to load app users for sync: ${error.message}`);

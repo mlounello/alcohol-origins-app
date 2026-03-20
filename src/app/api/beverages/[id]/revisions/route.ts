@@ -208,7 +208,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const nextRevisionNumber = (revisions?.[0]?.revision_number || 0) + 1;
 
-    await db
+    const { data: createdRevision, error: revisionInsertError } = await db
       .from('beverage_revisions')
       .insert({
         beverage_id: id,
@@ -216,7 +216,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         revision_number: nextRevisionNumber,
         data: updatePayload,
         edit_summary: `Reverted to revision #${revision.revision_number}`,
-      });
+      })
+      .select('id')
+      .single();
+
+    if (revisionInsertError) {
+      console.error('Revision creation error:', revisionInsertError);
+    } else if (createdRevision?.id) {
+      const { error: currentRevisionError } = await db
+        .from('beverages')
+        .update({ current_revision_id: createdRevision.id })
+        .eq('id', id);
+
+      if (currentRevisionError) {
+        console.error('Current revision update error:', currentRevisionError);
+      } else {
+        updatedBeverage.current_revision_id = createdRevision.id;
+      }
+    }
 
     await db
       .from('activity_log')

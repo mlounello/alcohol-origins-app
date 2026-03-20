@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create initial revision (column names match DB schema: edited_by, edit_summary)
-    const { error: revisionError } = await db
+    const { data: createdRevision, error: revisionError } = await db
       .from('beverage_revisions')
       .insert({
         beverage_id: newBeverage.id,
@@ -218,11 +218,24 @@ export async function POST(request: NextRequest) {
         revision_number: 1,
         data: beverageData,
         edit_summary: 'Initial creation',
-      });
+      })
+      .select('id')
+      .single();
 
     if (revisionError) {
       console.error('Revision creation error:', revisionError);
       // Don't fail the whole request for a revision error
+    } else if (createdRevision?.id) {
+      const { error: currentRevisionError } = await db
+        .from('beverages')
+        .update({ current_revision_id: createdRevision.id })
+        .eq('id', newBeverage.id);
+
+      if (currentRevisionError) {
+        console.error('Current revision update error:', currentRevisionError);
+      } else {
+        newBeverage.current_revision_id = createdRevision.id;
+      }
     }
 
     // Log activity
