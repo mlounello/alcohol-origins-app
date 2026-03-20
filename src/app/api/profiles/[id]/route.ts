@@ -254,16 +254,20 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 
   if (createdProfile) {
-    const syncResult = await syncAppUsersToControlRoom({
+    void syncAppUsersToControlRoom({
       db,
       fullSync: false,
       userId: user.id,
       trigger: 'profile-bootstrap',
-    });
-
-    if (!syncResult.ok && !syncResult.skipped) {
-      console.error('[profiles_route] control room sync failed', syncResult);
-    }
+    })
+      .then((syncResult) => {
+        if (!syncResult.ok && !syncResult.skipped) {
+          console.error('[profiles_route] control room sync failed', syncResult);
+        }
+      })
+      .catch((syncError) => {
+        console.error('[profiles_route] control room sync request failed', syncError);
+      });
   }
 
   return NextResponse.json(responseProfile);

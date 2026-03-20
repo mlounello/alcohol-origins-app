@@ -4,7 +4,6 @@ import { createBrowserClient } from '@supabase/ssr';
 
 export function getAppSchema() {
   return (
-    process.env.APP_SCHEMA ||
     process.env.NEXT_PUBLIC_APP_SCHEMA ||
     process.env.NEXT_PUBLIC_SUPABASE_DB_SCHEMA ||
     'app_alcohol_origins'

@@ -675,11 +675,12 @@ CREATE POLICY "Only admins can delete groups" ON app_alcohol_origins.beverage_gr
 CREATE POLICY "Public profiles are viewable by everyone" ON app_alcohol_origins.profiles FOR SELECT USING (true);
 
 
---
--- Name: beverage_revisions Revisions are viewable by everyone; Type: POLICY; Schema: public; Owner: -
+-- Name: beverage_revisions Revisions follow beverage visibility; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "Revisions are viewable by everyone" ON app_alcohol_origins.beverage_revisions FOR SELECT USING (true);
+CREATE POLICY "Revisions follow beverage visibility" ON app_alcohol_origins.beverage_revisions FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM app_alcohol_origins.beverages
+  WHERE ((beverages.id = beverage_revisions.beverage_id) AND ((beverages.approval_status = 'approved'::text) OR (beverages.created_by = auth.uid()) OR (app_alcohol_origins.get_user_role() = ANY (ARRAY['editor'::app_alcohol_origins.user_role, 'moderator'::app_alcohol_origins.user_role, 'admin'::app_alcohol_origins.user_role])))))));
 
 
 --

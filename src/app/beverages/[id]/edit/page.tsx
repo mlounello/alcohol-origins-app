@@ -95,12 +95,46 @@ export default function EditBeveragePage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch all beverages for parent dropdown
-        const allResponse = await fetch('/api/beverages');
-        if (allResponse.ok) {
-          const allData = await allResponse.json();
-          setAllBeverages(allData.filter((b: Beverage) => b.id !== id));
+        // Fetch parent candidates using the user's effective visibility.
+        const parentResponses = await Promise.all([
+          fetch('/api/beverages'),
+          fetch('/api/beverages/mine'),
+          profile && ['editor', 'moderator', 'admin'].includes(profile.role)
+            ? fetch('/api/beverages/pending?page=1&pageSize=1000&includeRejected=true')
+            : Promise.resolve(null),
+        ]);
+
+        const [approvedResponse, mineResponse, staffResponse] = parentResponses;
+        const parentCandidates = new Map<string, Beverage>();
+
+        if (approvedResponse.ok) {
+          const approvedData = await approvedResponse.json();
+          for (const candidate of approvedData as Beverage[]) {
+            if (candidate.id !== id) {
+              parentCandidates.set(candidate.id, candidate);
+            }
+          }
         }
+
+        if (mineResponse.ok) {
+          const mineData = await mineResponse.json();
+          for (const candidate of mineData as Beverage[]) {
+            if (candidate.id !== id) {
+              parentCandidates.set(candidate.id, candidate);
+            }
+          }
+        }
+
+        if (staffResponse?.ok) {
+          const staffData = await staffResponse.json();
+          for (const candidate of (staffData.data || []) as Beverage[]) {
+            if (candidate.id !== id) {
+              parentCandidates.set(candidate.id, candidate);
+            }
+          }
+        }
+
+        setAllBeverages(Array.from(parentCandidates.values()));
 
         if (!isNew) {
           // Fetch current beverage
@@ -140,7 +174,7 @@ export default function EditBeveragePage() {
     }
 
     fetchData();
-  }, [id, isNew, setValue]);
+  }, [id, isNew, profile, setValue]);
 
   const onSubmit = async (data: BeverageFormData, resubmit = false) => {
     if (!canEdit) {
