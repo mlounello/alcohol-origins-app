@@ -17,9 +17,51 @@ async function getResolvedRole(db: Awaited<ReturnType<typeof createDbClient>>['d
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const { db } = await createDbClient();
+  const { supabase, db } = await createDbClient();
 
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let userRole: string | null = null;
+    if (user) {
+      const { data: profile } = await db
+        .from('profiles')
+        .select('is_banned')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.is_banned) {
+        return NextResponse.json(
+          { error: 'Your account is banned' },
+          { status: 403 }
+        );
+      }
+
+      userRole = await getResolvedRole(db);
+    }
+
+    let beverageQuery = db
+      .from('beverages')
+      .select('id')
+      .eq('id', id);
+
+    if (!userRole || !['editor', 'moderator', 'admin'].includes(userRole)) {
+      if (user) {
+        beverageQuery = beverageQuery.or(`approval_status.eq.approved,created_by.eq.${user.id}`);
+      } else {
+        beverageQuery = beverageQuery.eq('approval_status', 'approved');
+      }
+    }
+
+    const { data: beverage, error: beverageError } = await beverageQuery.single();
+
+    if (beverageError || !beverage) {
+      return NextResponse.json(
+        { error: 'Beverage not found' },
+        { status: 404 }
+      );
+    }
+
     const { data: revisions, error } = await db
       .from('beverage_revisions')
       .select('*')

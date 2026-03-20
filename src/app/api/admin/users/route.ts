@@ -51,11 +51,11 @@ export async function GET(request: NextRequest) {
       roleErrorMessage: roleErr?.message ?? null,
     });
   }
-  if (!['admin', 'moderator', 'editor'].includes(role)) {
+  if (!['admin', 'moderator'].includes(role)) {
     if (debugData) {
       console.log('[DEBUG_DATA] admin_users deny_reason', { reason: 'insufficient_role' });
     }
-    return respond({ error: 'Admin, moderator, or editor access required' }, 403);
+    return respond({ error: 'Admin or moderator access required' }, 403);
   }
 
   try {
