@@ -169,7 +169,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     const bootstrapCandidate: Record<string, unknown> = {
       id: user.id,
       email: user.email ?? '',
-      role: 'viewer',
+      role: profile?.role ?? 'viewer',
       is_banned: (profile?.is_banned as boolean | undefined) ?? false,
       display_name: needsName ? metaName : profile?.display_name ?? null,
       avatar_url: needsAvatar ? metaAvatar : profile?.avatar_url ?? null,
