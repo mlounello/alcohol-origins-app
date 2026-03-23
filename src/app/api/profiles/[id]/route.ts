@@ -12,6 +12,15 @@ function extFromContentType(contentType: string | null): 'jpg' | 'png' {
   return contentType?.toLowerCase().includes('png') ? 'png' : 'jpg';
 }
 
+function jsonNoStore(body: unknown, init?: { status?: number }) {
+  return NextResponse.json(body, {
+    ...init,
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+    },
+  });
+}
+
 export async function GET(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const { supabase, db } = await createDbClient();
@@ -19,7 +28,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: 'Authentication required' },
       { status: 401 }
     );
@@ -30,7 +39,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 
   if (id !== user.id) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: 'Forbidden' },
       { status: 403 }
     );
@@ -197,7 +206,7 @@ export async function GET(request: Request, { params }: RouteParams) {
         .from('profiles')
         .upsert({ id: user.id }, { onConflict: 'id' });
       if (minimalErr) {
-        return NextResponse.json(
+        return jsonNoStore(
           { error: 'Failed to bootstrap profile' },
           { status: 500 }
         );
@@ -270,5 +279,5 @@ export async function GET(request: Request, { params }: RouteParams) {
       });
   }
 
-  return NextResponse.json(responseProfile);
+  return jsonNoStore(responseProfile);
 }

@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const response = await fetch(url, {
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
       });
 
       if (debugData) {
