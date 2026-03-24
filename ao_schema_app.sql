@@ -231,8 +231,12 @@ CREATE VIEW app_alcohol_origins.v_admin_users AS
     profiles.is_banned,
     profiles.banned_at,
     profiles.banned_reason,
-    profiles.role AS effective_role
-   FROM app_alcohol_origins.profiles;
+    COALESCE(membership.role, profiles.role) AS effective_role
+   FROM app_alcohol_origins.profiles
+     LEFT JOIN LATERAL ( SELECT (lower(m.role))::app_alcohol_origins.user_role AS role
+           FROM core.app_memberships m
+          WHERE ((m.user_id = profiles.id) AND (m.app_id = 'alcohol_origins'::text) AND (m.is_active = true))
+         LIMIT 1) membership ON (true);
 
 
 --
@@ -267,6 +271,49 @@ CREATE FUNCTION app_alcohol_origins.get_admin_user(p_user_id uuid) RETURNS SETOF
       auth.uid() = p_user_id
       OR app_alcohol_origins.get_user_role() IN ('moderator', 'admin')
     );
+$$;
+
+
+--
+-- Name: set_managed_user_role(uuid, app_alcohol_origins.user_role); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION app_alcohol_origins.set_managed_user_role(p_user_id uuid, p_role app_alcohol_origins.user_role) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'app_alcohol_origins', 'core', 'public'
+    AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'You must be authenticated.';
+  END IF;
+
+  IF app_alcohol_origins.get_user_role() NOT IN ('moderator', 'admin') THEN
+    RAISE EXCEPTION 'Admin or moderator access required.';
+  END IF;
+
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id is required.';
+  END IF;
+
+  UPDATE app_alcohol_origins.profiles
+  SET role = p_role
+  WHERE id = p_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User % not found.', p_user_id;
+  END IF;
+
+  UPDATE core.app_memberships
+  SET role = p_role::text,
+      is_active = true
+  WHERE user_id = p_user_id
+    AND app_id = 'alcohol_origins';
+
+  IF NOT FOUND THEN
+    INSERT INTO core.app_memberships (user_id, app_id, role, is_active)
+    VALUES (p_user_id, 'alcohol_origins', p_role::text, true);
+  END IF;
+END;
 $$;
 
 

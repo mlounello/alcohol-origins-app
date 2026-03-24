@@ -96,6 +96,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { role, is_banned, banned_reason } = body;
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    let roleHandledByRpc = false;
 
     if (role !== undefined) {
       // Validate role
@@ -114,7 +115,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      updates.role = role;
+      const { error: roleUpdateError } = await db.rpc('set_managed_user_role', {
+        p_user_id: userId,
+        p_role: role,
+      });
+
+      if (roleUpdateError) {
+        console.error('Error updating effective user role:', roleUpdateError);
+        return NextResponse.json(
+          { error: 'Failed to update user role' },
+          { status: 500 }
+        );
+      }
+
+      roleHandledByRpc = true;
     }
 
     if (is_banned !== undefined) {
@@ -132,19 +146,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         : null;
     }
 
-    if (Object.keys(updates).length === 1) {
+    if (Object.keys(updates).length === 1 && !roleHandledByRpc) {
       return NextResponse.json(
         { error: 'No changes provided' },
         { status: 400 }
       );
     }
 
-    const { data: updatedProfile, error } = await db
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
+    let updatedProfile: Record<string, unknown> | null = null;
+    let error: { message?: string } | null = null;
+
+    if (Object.keys(updates).length > 1) {
+      const profileUpdateResult = await db
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      updatedProfile = profileUpdateResult.data as Record<string, unknown> | null;
+      error = profileUpdateResult.error;
+    }
 
     if (error) {
       console.error('Error updating profile:', error);
@@ -154,7 +176,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (!updatedProfile) {
+    if (Object.keys(updates).length > 1 && !updatedProfile) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
