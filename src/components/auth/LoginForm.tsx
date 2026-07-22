@@ -68,18 +68,15 @@ export function LoginForm() {
     }
 
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        shouldCreateUser: true,
-      },
-    });
-
-    if (error) {
-      toast.error(error.message);
-    } else {
+    try {
+      await fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
       toast.success('Check your email for a magic sign-in link.');
+    } catch {
+      toast.error('Alcohol Origins could not request a sign-in link. Please try again.');
     }
     setIsLoading(false);
   };
