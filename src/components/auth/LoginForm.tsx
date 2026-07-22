@@ -61,6 +61,29 @@ export function LoginForm() {
     }
   };
 
+  const handleMagicLink = async () => {
+    if (!email.trim()) {
+      toast.error('Enter your email address first.');
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Check your email for a magic sign-in link.');
+    }
+    setIsLoading(false);
+  };
+
   return (
     <Card className="w-full max-w-md border-brand-gray/50 shadow-lg">
       <CardHeader className="space-y-4 text-center">
@@ -151,6 +174,15 @@ export function LoginForm() {
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign in'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-brand-gray hover:bg-brand-green/5 hover:border-brand-green"
+            onClick={handleMagicLink}
+            disabled={isLoading || !email.trim()}
+          >
+            Email me a magic link
           </Button>
         </form>
       </CardContent>

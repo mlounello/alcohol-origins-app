@@ -26,9 +26,11 @@ function getSafeRedirectPath(next: string | null): string {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const tokenHash = searchParams.get('token_hash');
+  const type = searchParams.get('type');
   const next = getSafeRedirectPath(searchParams.get('next'));
 
-  if (code) {
+  if (code || (tokenHash && type)) {
     const cookieStore = await cookies();
 
     const supabase = createServerClient(
@@ -48,7 +50,12 @@ export async function GET(request: Request) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({
+          token_hash: tokenHash!,
+          type: type as 'magiclink' | 'recovery' | 'invite' | 'signup' | 'email_change' | 'email',
+        });
 
     if (!error) {
       // Redirect with a cache-busting parameter to force client refresh
